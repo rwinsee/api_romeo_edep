@@ -88,6 +88,12 @@ ui <- navbarPage(
             tags$li("Utilisez l'onglet 'Recherche' pour saisir un texte libre, comme un intitulé de poste ou une description de compétence."),
             tags$li("Obtenez une liste d'appellations ou de savoir-faire associés, avec un score de correspondance."),
             tags$li("Explorez les résultats et consultez les métadonnées.")
+          ),
+          # Ajouter une note sur les accents
+          h3("Note importante"),
+          p(
+            strong("À noter : "), 
+            "Il est recommandé de prêter attention aux accents dans la saisie des mots-clés, car leur absence peut influencer les résultats de l'intelligence artificielle."
           )
         )
       )
@@ -120,7 +126,17 @@ ui <- navbarPage(
       sidebarLayout(
         sidebarPanel(
           h4("Interroger l'API ROME"),
-          textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien")
+          textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien"),
+          # Ajouter une note importante ici
+          h4("Note importante"),
+          p(
+            strong("À noter : "), 
+            "L'importance des accents dans la saisie ne doit pas être négligée. Par exemple, une recherche avec ", 
+            strong("affréteur"), 
+            " peut donner des résultats différents de ", 
+            strong("affreteur"), 
+            ". Pensez à vérifier votre saisie pour obtenir les meilleurs résultats."
+          )
         ),
         mainPanel(
           uiOutput("search_results"),  # Affichage conditionnel des résultats
