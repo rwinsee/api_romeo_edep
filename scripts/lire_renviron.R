@@ -1,4 +1,4 @@
-readRenviron("~/work/api_romeo_edep/.Renviron")
+readRenviron(".Renviron")
 
 Sys.getenv("FT_API_ENDPOINT")
 Sys.getenv("AUTH_API_ENDPOINT")

@@ -50,6 +50,21 @@ transform_fiches_metier <- function(fiches) {
   }))
 }
 
+# Fonction pour supprimer les accents d'une chaîne ou d'un vecteur
+remove_accents <- function(text) {
+  if (is.null(text) || length(text) == 0) {
+    return(text)
+  }
+  sapply(text, function(x) {
+    if (!is.na(x) && nzchar(x)) {
+      iconv(x, from = "UTF-8", to = "ASCII//TRANSLIT")
+    } else {
+      x  # Retourne tel quel si vide ou NA
+    }
+  }, USE.NAMES = FALSE)
+}
+
+
 # Interface utilisateur
 ui <- navbarPage(
   title = "Application Client ROMEO",
@@ -131,8 +146,6 @@ ui <- navbarPage(
     )
   ),
   
-  
-  # Page de références
   # Page de références
   tabPanel(
     "Références et API",
@@ -212,14 +225,56 @@ server <- function(input, output, session) {
     )
   })
   
-  # Fonction pour récupérer les données en fonction de la saisie
   predictions <- reactive({
-    if (input$libelle == "" || is.null(input$libelle)) {
+    # Normaliser la saisie utilisateur (supprimer les accents)
+    normalized_input <- remove_accents(input$libelle)
+    if (is.null(normalized_input) || normalized_input == "") {
       return(NULL)  # Retourne NULL si aucun critère n'est saisi
     }
-    result <- fetch_appellations(input$libelle)
-    transform_appellations(result)
+    
+    # Appeler l'API avec la saisie d'origine
+    result <- fetch_appellations(input$libelle)  
+    
+    # Debug : affiche les résultats bruts de l'API
+    print(result) 
+    
+    transformed_results <- transform_appellations(result)
+    
+    # Vérifier si le `data.frame` a des lignes
+    if (is.null(transformed_results) || nrow(transformed_results) == 0) {
+      return(data.frame())  # Retourne un `data.frame` vide si aucun résultat
+    }
+    
+    # Vérifier et normaliser les colonnes si elles existent
+    if ("LibelleAppellation" %in% colnames(transformed_results)) {
+      transformed_results$NormalizedAppellation <- remove_accents(transformed_results$LibelleAppellation)
+    } else {
+      transformed_results$NormalizedAppellation <- NA  # Ajouter une colonne vide si elle n'existe pas
+    }
+    
+    if ("Intitulé" %in% colnames(transformed_results)) {
+      transformed_results$NormalizedIntitule <- remove_accents(transformed_results$Intitulé)
+    } else {
+      transformed_results$NormalizedIntitule <- NA  # Ajouter une colonne vide si elle n'existe pas
+    }
+    
+    # Filtrer les résultats pour inclure ceux qui correspondent à la saisie normalisée
+    filtered_results <- transformed_results[
+      grepl(normalized_input, transformed_results$NormalizedAppellation, ignore.case = TRUE) |
+        grepl(normalized_input, transformed_results$NormalizedIntitule, ignore.case = TRUE),
+    ]
+    
+    # Vérifier à nouveau si le filtrage retourne un résultat vide
+    if (is.null(filtered_results) || nrow(filtered_results) == 0) {
+      return(data.frame())  # Retourne un `data.frame` vide si aucun résultat
+    }
+    
+    filtered_results
   })
+  
+  
+  
+  
   
   # Affichage conditionnel
   output$search_results <- renderUI({
@@ -241,7 +296,7 @@ server <- function(input, output, session) {
   # Affichage des prédictions dans le tableau
   output$table_predictions <- renderDT({
     pred_data <- predictions()
-    if (is.null(pred_data)) {
+    if (is.null(pred_data) || nrow(pred_data) == 0) {
       return(NULL)  # Retourne rien si aucune donnée n'est trouvée
     }
     # Convertir le score en pourcentage
