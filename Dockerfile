@@ -9,12 +9,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Étape 3 : Copier l'application dans le conteneur
-ADD app.R
-ADD scripts/fonction_fetchAppelations.R 
-ADD scripts/fonction_getFichesMetier.R
-ADD scripts/fonction_getAccessToken.R
-ADD scripts/fonction_fetchAppelations.R
-COPY . .
+# Étape 3 : Copier l'application dans le conteneur
+COPY app.R /srv/shiny-server/
+COPY scripts/fonction_fetchAppelations.R /srv/shiny-server/scripts/
+COPY scripts/fonction_getFichesMetier.R /srv/shiny-server/scripts/
+COPY scripts/fonction_getAccessToken.R /srv/shiny-server/scripts/
+
 # Étape 4 : Installer les packages R nécessaires
 RUN R -e "install.packages(c('shiny', 'DT', 'httr', 'jsonlite'), repos='http://cran.rstudio.com/')"
 
