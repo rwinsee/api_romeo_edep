@@ -9,8 +9,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Étape 3 : Copier l'application dans le conteneur
-COPY . /srv/shiny-server/
-
+ADD app.R
+ADD scripts/fonction_fetchAppelations.R 
+ADD scripts/fonction_getFichesMetier.R
+ADD scripts/fonction_getAccessToken.R
+ADD scripts/fonction_fetchAppelations.R
+COPY . .
 # Étape 4 : Installer les packages R nécessaires
 RUN R -e "install.packages(c('shiny', 'DT', 'httr', 'jsonlite'), repos='http://cran.rstudio.com/')"
 
@@ -23,4 +27,4 @@ EXPOSE $SHINY_PORT
 RUN echo "local({options(shiny.port = ${SHINY_PORT}, shiny.host = '0.0.0.0')})" >> /usr/local/lib/R/etc/Rprofile.site
 
 # Étape 7 : Démarrer Shiny Server
-CMD ["Rscript", "-e", "shiny::runApp()"]
+CMD ["Rscript", "-e", "shiny::runApp('/srv/shiny-server')"]

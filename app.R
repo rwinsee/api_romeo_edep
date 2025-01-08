@@ -3,16 +3,16 @@ library(DT)
 library(httr)
 library(jsonlite)
 
-readRenviron("~/work/api_romeo_edep/.Renviron")
+readRenviron(".Renviron")
 
 Sys.getenv("FT_API_ENDPOINT")
 Sys.getenv("AUTH_API_ENDPOINT")
 Sys.getenv("CLIENT_SECRET")
 Sys.getenv("CLIENT_ID")
 
-source("~/work/api_romeo_edep/scripts/fonction_getAccessToken.R")
-source("~/work/api_romeo_edep/scripts/fonction_fetchAppelations.R")
-source("~/work/api_romeo_edep/scripts/fonction_getFichesMetier.R")
+source("scripts/fonction_getAccessToken.R")
+source("scripts/fonction_fetchAppelations.R")
+source("scripts/fonction_getFichesMetier.R")
 
 # Fonction pour transformer les données retournées par `fetch_appellations`
 transform_appellations <- function(result) {
