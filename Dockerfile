@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Étape 3 : Copier l'application dans le conteneur
-COPY . /srv/shiny-server/app
+COPY . /srv/shiny-server/
 
 # Étape 4 : Installer les packages R nécessaires
 RUN R -e "install.packages(c('shiny', 'DT', 'httr', 'jsonlite'), repos='http://cran.rstudio.com/')"
