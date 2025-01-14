@@ -12,7 +12,7 @@ Sys.getenv("CLIENT_SECRET")
 Sys.getenv("CLIENT_ID")
 
 source("scripts/fonction_getAccessToken.R")
-source("scripts/fonction_fetchAppelations.R")
+source("scripts/fonction_fetchAppelationsContexte.R")
 source("scripts/fonction_getFichesMetier.R")
 
 # Fonction pour transformer les données retournées par fetch_appellations
@@ -24,11 +24,11 @@ transform_appellations <- function(result) {
   # Extraire les données pertinentes
   do.call(rbind, lapply(result[[1]]$metiersRome, function(x) {
     data.frame(
-      CodeRome = x$codeRome,
-      Intitule = x$libelleRome,
-      LibelleAppellation = x$libelleAppellation,
-      
-      Score = x$scorePrediction,
+      CodeRome = x$codeRome, # Code ROME de la fiche parente (3premiers digit domaine pro et les deux derniers fiches)  
+      Intitule = x$libelleRome, # Libellé de la fiche ROME parente
+      LibelleAppellation = x$libelleAppellation, # Libellé de l'appellation métier du ROME prédite
+      CodeAppellation = x$codeAppellation, # Code de l'appellation métier ROME prédite
+      Score = x$scorePrediction, # Score de confiance de l'IA suite à sa prédiction (plus on est proche de 1 plus l'IA est confiante)
       stringsAsFactors = FALSE
     )
   }))
@@ -108,7 +108,8 @@ ui <- navbarPage(
       sidebarLayout(
         sidebarPanel(
           h4("Filtrer les métiers"),
-          textInput("search_rome", "Rechercher dans les métiers :", placeholder = "Exemple : électricien")
+          textInput("search_rome", "Rechercher dans les métiers :", placeholder = "Exemple : électricien"),
+          textInput("contexte", "Entrez un contexte :", placeholder = "Exemple : horticulture") # Champ de saisie pour le contexte
         ),
         mainPanel(
           h4("Liste des métiers"),
@@ -127,6 +128,7 @@ ui <- navbarPage(
         sidebarPanel(
           h4("Interroger l'API ROME"),
           textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien"),
+          textInput("contexte", "Entrez un contexte :", placeholder = "Exemple : horticulture"), # Champ de saisie pour le contexte
           # Ajouter une note importante ici
           h4("Note importante"),
           p(
@@ -229,13 +231,27 @@ server <- function(input, output, session) {
   })
   
   # Fonction pour récupérer les données en fonction de la saisie
+  # predictions <- reactive({
+  #  if (input$libelle == "" || is.null(input$libelle)) {
+  #    return(NULL)  # Retourne NULL si aucun critère n'est saisi
+  #  }
+  # result <- fetch_appellations(input$libelle)
+  #  transform_appellations(result)
+  #})
+  # Fonction pour récupérer les données en fonction de la saisie
   predictions <- reactive({
     if (input$libelle == "" || is.null(input$libelle)) {
       return(NULL)  # Retourne NULL si aucun critère n'est saisi
     }
-    result <- fetch_appellations(input$libelle)
+    
+    # Récupérez le contexte depuis l'interface utilisateur
+    contexte <- ifelse(input$contexte == "" || is.null(input$contexte), "", input$contexte)
+    
+    # Appeler l'API avec la saisie et le contexte
+    result <- fetch_appellations(libelle = input$libelle, contexte = contexte)
     transform_appellations(result)
   })
+  
   
   # Affichage conditionnel
   output$search_results <- renderUI({
@@ -264,11 +280,15 @@ server <- function(input, output, session) {
     pred_data$Score <- round(pred_data$Score * 100, 1)
     pred_data$Score <- paste0(pred_data$Score, "%")
     
+    # Sélectionner uniquement les colonnes "Appellation" et "Score"
+    pred_data <- pred_data[, c("CodeAppellation", "LibelleAppellation", "Score")]
+    
     datatable(
       pred_data,
       rownames = FALSE,
       options = list(pageLength = 10),
-      colnames = c("Code Rome", "Appellation", "Intitulé", "Score")
+      colnames = c(#"Code Rome", "Intitulé", 
+        "Code OGR", "Appellation", "Score")
     )
   })
   
