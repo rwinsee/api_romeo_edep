@@ -4,12 +4,12 @@ library(jsonlite)
 library(bslib)  # Pour des thèmes modernes Bootstrap
 
 
-readRenviron(".Renviron")
+#readRenviron(".Renviron")
 
-Sys.getenv("FT_API_ENDPOINT")
-Sys.getenv("AUTH_API_ENDPOINT")
-Sys.getenv("CLIENT_SECRET")
-Sys.getenv("CLIENT_ID")
+#Sys.getenv("FT_API_ENDPOINT")
+#Sys.getenv("AUTH_API_ENDPOINT")
+#Sys.getenv("CLIENT_SECRET")
+#Sys.getenv("CLIENT_ID")
 
 source("scripts/fonction_getAccessToken.R")
 source("scripts/fonction_fetchAppelationsContexte.R")

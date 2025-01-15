@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
 # Étape 3 : Copier l'application dans le conteneur
 COPY app.R /srv/shiny-server/
 COPY scripts/fonction_fetchAppelations.R /srv/shiny-server/scripts/
+COPY scripts/fonction_fetchAppelationsContexte.R /srv/shiny-server/scripts/
 COPY scripts/fonction_getFichesMetier.R /srv/shiny-server/scripts/
 COPY scripts/fonction_getAccessToken.R /srv/shiny-server/scripts/
 
