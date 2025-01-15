@@ -189,6 +189,13 @@ ui <- navbarPage(
             tags$li(
               HTML("Déployé via : "),
               a("Plateforme SSPCloud de l'INSEE ", href = "https://datalab.sspcloud.fr/", target = "_blank")
+            ),
+            tags$li(
+              HTML("Version actuelle : <strong>0.0.2</strong>")
+            ),
+            tags$li(
+              HTML("Historique des versions : "),
+              a("Releases GitHub", href = "https://github.com/rwinsee/api_romeo_edep/releases", target = "_blank")
             )
           )
         )
@@ -259,7 +266,12 @@ server <- function(input, output, session) {
       # Aucun texte saisi, affichez un message
       div(
         style = "margin-top: 20px;",
-        h4("Veuillez saisir un mot-clé pour lancer la recherche.")
+        h4("Veuillez saisir un mot-clé pour lancer la recherche, comme un métier ou une appellation (exemple : 'vendeur' ou 'professeur')."),
+        p("Vous pouvez également préciser un contexte professionnel pour affiner les résultats, par exemple :"),
+        tags$ul(
+          tags$li("Mot-clé : 'vendeur', Contexte : 'boulangerie'"),
+          tags$li("Mot-clé : 'professeur', Contexte : 'enseignement supérieur'")
+        )
       )
     } else {
       # Texte saisi, affichez les résultats et le titre
@@ -269,6 +281,7 @@ server <- function(input, output, session) {
       )
     }
   })
+  
   
   # Affichage des prédictions dans le tableau
   output$table_predictions <- renderDT({
