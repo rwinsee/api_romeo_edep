@@ -165,7 +165,7 @@ ui <- navbarPage(
             a("Documentation API France Travail", href = "https://francetravail.io/produits-partages/documentation", target = "_blank")
           ),
           p("Pour plus d'informations sur l'API ROME : ",
-            a("Documentation API ROME", href = "https://api.gouv.fr/documentation/rome", target = "_blank")
+            a("Documentation API ROME", href = "https://francetravail.io/produits-partages/catalogue/romeo-2/documentation#/api-reference/", target = "_blank")
           ),
           p("Pour en savoir plus sur France Travail, visitez le site officiel : ",
             a("France Travail", href = "https://www.francetravail.fr", target = "_blank")
