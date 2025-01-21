@@ -5,12 +5,14 @@ library(bslib)  # Pour des thèmes modernes Bootstrap
 library(shinyjs)
 library(dplyr)
 
-readRenviron(".Renviron")
+date_deploiement <- "21-01-2025"
 
-Sys.getenv("FT_API_ENDPOINT")
-Sys.getenv("AUTH_API_ENDPOINT")
-Sys.getenv("CLIENT_SECRET")
-Sys.getenv("CLIENT_ID")
+#readRenviron(".Renviron")
+
+#Sys.getenv("FT_API_ENDPOINT")
+#Sys.getenv("AUTH_API_ENDPOINT")
+#Sys.getenv("CLIENT_SECRET")
+#Sys.getenv("CLIENT_ID")
 
 source("scripts/fonction_getAccessToken.R")
 #source("scripts/fonction_fetchAppelationsContexte.R")
@@ -317,11 +319,14 @@ ui <- navbarPage(
               a("Plateforme SSPCloud de l'INSEE ", href = "https://datalab.sspcloud.fr/", target = "_blank")
             ),
             tags$li(
-              HTML("Version actuelle : <strong>0.0.2</strong>")
+              HTML("Version actuelle : <strong>0.0.3</strong>")
             ),
             tags$li(
               HTML("Historique des versions : "),
               a("Releases GitHub", href = "https://github.com/rwinsee/api_romeo_edep/releases", target = "_blank")
+            ),
+            tags$li(
+              HTML(paste0("Date de mise à jour : <strong>", date_deploiement, "</strong>"))
             )
           )
         )
@@ -580,7 +585,7 @@ server <- function(input, output, session) {
             "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
             "</strong> avec l'intitulé : <strong>", best_result$Intitule,
             "</strong> (Code ROME : <strong>", best_result$CodeAppellation, 
-            "</strong>, Code fiche métier ROME : <strong>", best_result$CodeRome, "</strong>)."
+            "</strong>, code fiche métier ROME : <strong>", best_result$CodeRome, "</strong>)."
           )
           
         )
