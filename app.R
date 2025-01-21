@@ -62,23 +62,81 @@ ui <- navbarPage(
   useShinyjs(),
   # Ajouter les styles CSS
   tags$style(HTML("
+  /* Harmoniser les styles des champs de texte et de sélection */
+  .form-control, .selectize-input {
+    font-family: Arial, sans-serif; /* Harmonisation de la police */
+    font-size: 1em; /* Taille uniforme */
+    color: #555; /* Gris moyen pour le texte */
+    background-color: #fff; /* Fond blanc */
+    border: 1px solid #ccc; /* Bordure grise claire */
+    border-radius: 4px; /* Coins arrondis */
+    padding: 8px; /* Espacement intérieur */
+    box-shadow: none; /* Supprime les ombres */
+    height: auto; /* S'assure que la hauteur est uniforme */
+  }
+
+  /* Placeholder en gris clair */
+  ::placeholder {
+    color: #aaa; /* Placeholder en gris clair */
+    font-family: Arial, sans-serif;
+    font-size: 1em;
+  }
+
+  /* Ajuster les styles pour le champ selectize */
+  .selectize-control {
+    font-family: Arial, sans-serif; /* Harmonisation de la police */
+    font-size: 1em; /* Taille uniforme */
+    color: #555; /* Texte en gris moyen */
+    background-color: #fff; /* Fond blanc */
+    border: 1px solid #ccc; /* Bordure grise claire */
+    border-radius: 4px; /* Coins arrondis */
+  }
+
+  /* Options dans le menu déroulant selectize */
+  .selectize-dropdown-content {
+    font-family: Arial, sans-serif; /* Harmonisation de la police */
+    font-size: 1em; /* Taille uniforme */
+    color: #555; /* Texte en gris moyen */
+    background-color: #fff; /* Fond blanc */
+  }
+
+  /* Placeholder pour le champ selectize */
+  .selectize-input > input {
+    color: #aaa; /* Placeholder en gris clair */
+    font-family: Arial, sans-serif;
+    font-size: 1em;
+  }
+
+  /* Focus pour tous les champs */
+  .form-control:focus, .selectize-input:focus, .selectize-control.single .selectize-input {
+    border-color: #aaa; /* Gris clair pour le bord lors du focus */
+    outline: none; /* Supprime la bordure extérieure */
+    box-shadow: none; /* Supprime les ombres */
+  }
+
+  /* Survol des options */
+  .selectize-dropdown-content div:hover {
+    background-color: #f7f7f7; /* Fond gris clair au survol */
+    border-radius: 4px; /* Coins arrondis pour les options */
+  }
+
+  /* Styles pour les croix de réinitialisation */
   #clear_contexte_icon, #clear_libelle_icon {
     position: absolute;
-    top: 60% !important; /* Descend légèrement les croix */
-    right: 8px; /* Ajuste l'espace à droite */
+    top: 50%;
+    right: 8px;
     transform: translateY(-50%);
     cursor: pointer;
     color: #aaa;
-    font-size: 1em; /* Taille de la croix */
+    font-size: 1em;
     z-index: 10;
   }
+
   #clear_contexte_icon:hover, #clear_libelle_icon:hover {
     color: #333; /* Change la couleur au survol */
   }
-  .form-control {
-    padding-right: 35px; /* Laisser de la place pour les croix */
-  }
-")),
+"))
+  ,
   # Page d'accueil
   tabPanel(
     "Accueil",
@@ -159,7 +217,7 @@ ui <- navbarPage(
               id = "clear_libelle_icon",
               style = "
       position: absolute;
-      top: 50%;
+      top: 55%;
       right: 8x;
       transform: translateY(-50%);
       cursor: pointer;
@@ -188,7 +246,7 @@ ui <- navbarPage(
               id = "clear_contexte_icon",
               style = "
       position: absolute;
-      top: 50%;
+      top: 55%;
       right: 8px;
       transform: translateY(-50%);
       cursor: pointer;
@@ -440,12 +498,22 @@ server <- function(input, output, session) {
       # Aucun texte saisi, affichez un message
       div(
         style = "margin-top: 20px;",
-        h4("Veuillez saisir un mot-clé pour lancer la recherche, comme un métier ou une appellation (exemple : 'vendeur' ou 'professeur')."),
-        p("Vous pouvez également préciser un contexte professionnel pour affiner les résultats, par exemple :"),
+        h4("Guide de recherche : comment utiliser les champs ?"),
+        p("Pour lancer une recherche, vous pouvez utiliser les combinaisons suivantes :"),
+        tags$ul(
+          tags$li("Mot-clé uniquement : Exemple : 'vendeur'"),
+          tags$li("Mot-clé et Code APET : Exemple : Mot-clé 'vendeur', Code APET '1071C', le contexte s'actualisera selon le libellé normalisé de l'APET choisie"),
+          tags$li("Mot-clé et Contexte : Exemple : Mot-clé 'vendeur', Contexte 'boulangerie'"),
+          tags$li("Mot-clé, Code APET, et Contexte : Exemple : Mot-clé 'vendeur', Code APET '1071C', Contexte 'commerce de détail'. Toutefois, le mot-clef et le contexte prendront le dessus.")
+        ),
+        h4("Exemples de recherche :"),
         tags$ul(
           tags$li("Mot-clé : 'vendeur', Contexte : 'boulangerie'"),
-          tags$li("Mot-clé : 'professeur', Contexte : 'enseignement supérieur'")
-        )
+          tags$li("Mot-clé : 'professeur', Contexte : 'enseignement supérieur'"),
+          tags$li("Mot-clé : 'boucher', Code APET : '1011Z'"),
+          tags$li("Mot-clé : 'plombier', Code APET : '4322A', Contexte : 'travaux sanitaires'")
+        ),
+        p("N'hésitez pas à ajuster vos recherches en fonction des informations que vous avez pour obtenir des résultats plus précis.")
       )
     } else {
       # Texte saisi, affichez les résultats et le titre
@@ -455,6 +523,7 @@ server <- function(input, output, session) {
       )
     }
   })
+  
   
   
   # Affichage des prédictions dans le tableau
@@ -482,12 +551,23 @@ server <- function(input, output, session) {
   # Note de lecture basée sur le score le plus élevé
   output$note_lecture <- renderUI({
     pred_data <- predictions()
+    
+    # Debug: inspecter les données de pred_data
+    if (!is.null(pred_data)) {
+      message("Structure de pred_data :")
+      print(str(pred_data))
+    }
+    
     if (is.null(pred_data) || nrow(pred_data) == 0) {
       return(NULL)  # Pas de note si aucun résultat
     }
     
     # Obtenez le résultat avec le score le plus élevé
     best_result <- pred_data[which.max(as.numeric(pred_data$Score)), ]
+    
+    # Debug: inspecter les données de best_result
+    message("Structure de best_result :")
+    print(str(best_result))
     
     # Texte explicatif
     div(
@@ -499,8 +579,10 @@ server <- function(input, output, session) {
             "La meilleure correspondance pour votre recherche <strong>'", input$libelle, 
             "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
             "</strong> avec l'intitulé : <strong>", best_result$Intitule,
-            "</strong> (Code ROME : <strong>", best_result$codeAppellation, "</strong>)."
+            "</strong> (Code ROME : <strong>", best_result$CodeAppellation, 
+            "</strong>, Code fiche métier ROME : <strong>", best_result$CodeRome, "</strong>)."
           )
+          
         )
       ),
       p(
@@ -513,6 +595,7 @@ server <- function(input, output, session) {
       )
     )
   })
+  
   
   
   
