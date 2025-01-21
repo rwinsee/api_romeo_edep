@@ -88,11 +88,11 @@ nettoyer_libelle <- function(libelle) {
 # Appliquer la fonction à la colonne Libellé
 naf_data$Libellé_bis <- sapply(naf_data$Libellé, nettoyer_libelle)
 # Aperçu du tableau
-head(naf_data)
+# head(naf_data)
 # Tester la fonction avec un exemple
-example_code <- "1071C"
-context <- get_context_from_code_naf(example_code, naf_data)
-print(context)
+# example_code <- "1071C"
+# context <- get_context_from_code_naf(example_code, naf_data)
+# print(context)
 
-colnames(naf_data)
-head(naf_data)
+# colnames(naf_data)
+# head(naf_data)

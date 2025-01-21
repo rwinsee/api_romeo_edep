@@ -2,7 +2,7 @@ library(DT)
 library(httr)
 library(jsonlite)
 library(bslib)  # Pour des thèmes modernes Bootstrap
-
+library(shinyjs)
 
 readRenviron(".Renviron")
 
@@ -58,7 +58,26 @@ transform_fiches_metier <- function(fiches) {
 ui <- navbarPage(
   title = "Application Client ROMEO",
   theme = bs_theme(bootswatch = "flatly"),  # Thème moderne
-  
+  useShinyjs(),
+  # Ajouter les styles CSS
+  tags$style(HTML("
+  #clear_contexte_icon {
+    position: absolute;
+    top: 60% !important;
+    right: 8px; /* Ajuste l'espace à droite */
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #aaa;
+    font-size: 1em; /* Taille de la croix */
+    z-index: 10;
+  }
+  #clear_contexte_icon:hover {
+    color: #333;
+  }
+  .form-control {
+    padding-right: 35px; /* Laisser plus de place pour la croix */
+  }
+")),
   # Page d'accueil
   tabPanel(
     "Accueil",
@@ -143,7 +162,26 @@ ui <- navbarPage(
               maxOptions = 10
             )
           ),
-          textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
+          #textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
+          div(
+            style = "position: relative; display: inline-block; width: 100%;",
+            textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
+            tags$span(
+              id = "clear_contexte_icon",
+              style = "
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #aaa;
+      font-size: 1em;
+      z-index: 10;",
+              icon("times")  # L'icône FontAwesome pour la croix
+            )
+          )
+          ,
+          
           verbatimTextOutput("debug_context"),
           # Ajouter une note importante ici
           h4("Note importante"),
@@ -256,11 +294,45 @@ server <- function(input, output, session) {
   contexte_reactif <- reactiveVal("")  # Valeur réactive pour le contexte
   
   observeEvent(input$contexte, {
-    if (!is.null(input$contexte) && input$contexte != "") {
-      contexte_reactif(as.character(input$contexte))  # Prioriser le contexte libre
-      message("Contexte libre saisi par l'utilisateur : ", input$contexte)
+    if (is.null(input$contexte) || input$contexte == "") {
+      contexte_reactif("")  # Réinitialiser la valeur réactive associée
+      message("Le champ contexte a été réinitialisé et le contexte réactif est vide.")
+    } else {
+      contexte_reactif(input$contexte)  # Mettre à jour avec la saisie actuelle
+      message("Contexte mis à jour avec : ", input$contexte)
     }
   })
+  
+  # Ajoutez un observer pour réagir au clic sur la croix
+  observe({
+    runjs("
+    $('#clear_contexte_icon').on('click', function() {
+      $('#contexte').val('');  // Vide le champ texte
+      Shiny.setInputValue('contexte', '');  // Met à jour la valeur côté Shiny
+      Shiny.setInputValue('clear_contexte', Math.random());  // Déclenche une action distincte
+    });
+  ")
+  })
+  
+# Observer l'événement `clear_contexte` pour réinitialiser les recherches
+observeEvent(input$clear_contexte, {
+  contexte_reactif("")  # Réinitialiser le contexte réactif
+  message("Contexte réactif réinitialisé après clic sur la croix.")
+})
+
+  # Ajouter un debounce pour éviter les déclenchements multiples
+  contexte_libre <- reactive({
+    input$contexte
+  }) %>% debounce(500)  # Temporisation de 500 ms
+  
+  # Observer pour capturer les modifications du contexte libre (debounced)
+  observeEvent(contexte_libre(), {
+    if (!is.null(contexte_libre()) && contexte_libre() != "") {
+      contexte_reactif(as.character(contexte_libre()))  # Prioriser le contexte libre différé
+      message("Contexte libre (debounced) saisi par l'utilisateur : ", contexte_libre())
+    }
+  })
+  
   
   # Observer pour mettre à jour la valeur réactive lorsque le champ APET est sélectionné
   observeEvent(input$code_apet, {
@@ -293,26 +365,28 @@ server <- function(input, output, session) {
     updateTextInput(session, "contexte", value = contexte_reactif())
   })
   
-  
-  
+  observeEvent(input$clear_contexte, {
+    updateTextInput(session, "contexte", value = "")  # Réinitialiser le champ contexte
+    contexte_reactif("")  # Réinitialiser la valeur réactive associée
+    message("Le champ contexte a été réinitialisé par l'utilisateur.")
+  })
   
   # Fonctionnalité pour envoyer le contexte et le mot-clé à l'API
   predictions <- reactive({
     if (input$libelle == "" || is.null(input$libelle)) {
-      return(NULL)  # Retourne NULL si aucun critère n'est saisi
+      return(NULL)  # Aucun critère saisi
     }
     
-    # Récupérez le mot-clé et le contexte
-    contexte_test <- input$contexte_test
-    
-    # Appeler l'API avec le mot-clé et le contexte
+    # Utiliser le contexte réactif final (debounced)
+    contexte_final <- as.character(contexte_reactif())
     result <- fetch_predictions_with_context(
       intitule = input$libelle,
-      contexte = as.character(contexte_reactif()),  # S'assurer que c'est du texte
+      contexte = contexte_final,
       naf_data = naf_data
     )
     transform_appellations(result)
   })
+  
   
   
   # Affichage conditionnel
