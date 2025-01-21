@@ -255,21 +255,32 @@ server <- function(input, output, session) {
   
   contexte_reactif <- reactiveVal("")  # Valeur réactive pour le contexte
   
+  observeEvent(input$contexte, {
+    if (!is.null(input$contexte) && input$contexte != "") {
+      contexte_reactif(as.character(input$contexte))  # Prioriser le contexte libre
+      message("Contexte libre saisi par l'utilisateur : ", input$contexte)
+    }
+  })
+  
   # Observer pour mettre à jour la valeur réactive lorsque le champ APET est sélectionné
   observeEvent(input$code_apet, {
     selected_code <- input$code_apet
     
     if (selected_code %in% naf_data$Code) {
       libelle_naf <- naf_data$Libellé_bis[naf_data$Code == selected_code]
-      contexte_reactif(as.character(libelle_naf))  # Convertir explicitement en texte
-      updateTextInput(session, "contexte", value = libelle_naf)  # Synchroniser avec le champ texte
-      message("Champ contexte mis à jour avec : ", libelle_naf)
+      
+      if (is.null(input$contexte) || input$contexte == "") {
+        contexte_reactif(as.character(libelle_naf))  # Contexte normalisé si le contexte libre est vide
+        updateTextInput(session, "contexte", value = libelle_naf)
+        message("Contexte normalisé mis à jour avec : ", libelle_naf)
+      }
     } else {
       contexte_reactif("Contexte non défini ou introuvable")
       updateTextInput(session, "contexte", value = "Contexte non défini ou introuvable")
-      message("Champ contexte réinitialisé : Contexte non défini ou introuvable")
+      message("Aucun contexte APET valide, contexte réinitialisé.")
     }
   })
+  
   
   # Observer pour capturer les modifications manuelles du champ texte
   observeEvent(input$contexte_test, {

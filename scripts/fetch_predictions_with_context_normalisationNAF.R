@@ -2,25 +2,20 @@ fetch_predictions_with_context <- function(intitule, identifiant = "123456", con
   ft_api_endpoint <- Sys.getenv("FT_API_ENDPOINT")
   access_token <- get_access_token()
   
-  # Si un code NAF est fourni comme contexte, récupérez le libellé nettoyé (Libellé_bis)
+  # Vérifiez si le contexte libre est saisi
   if (!is.null(contexte) && contexte != "") {
-    if (is.reactive(contexte)) {
-      contexte <- contexte()  # Extraire la valeur réelle si c'est une valeur réactive
-    }
+    message("Contexte libre saisi par l'utilisateur : ", contexte)
+    contexte_final <- enc2utf8(as.character(contexte))  # Utilisez directement le contexte libre
+  } else {
+    # Sinon, utilisez le contexte basé sur le code APET
     matched_context <- get_context_from_code_naf(contexte, naf_data)
     if (!is.null(matched_context) && matched_context != contexte) {
-      message("Contexte mis à jour avec le libellé nettoyé : ", matched_context)
-      contexte <- matched_context
+      message("Contexte basé sur le code APET : ", matched_context)
+      contexte_final <- enc2utf8(as.character(matched_context))
+    } else {
+      contexte_final <- "Contexte non défini ou introuvable"
+      message("Aucun contexte disponible, utilisation du contexte par défaut.")
     }
-  }
-  
-  # Encodage UTF-8 pour éviter les erreurs dues aux caractères spéciaux
-  contexte <- enc2utf8(as.character(contexte))
-  
-  # Fournir une valeur par défaut si le contexte est invalide
-  if (is.null(contexte) || contexte == "") {
-    contexte <- "Contexte non défini ou introuvable"
-    message("Contexte par défaut utilisé.")
   }
   
   # Préparer le corps de la requête
@@ -29,7 +24,7 @@ fetch_predictions_with_context <- function(intitule, identifiant = "123456", con
       list(
         intitule = intitule,
         identifiant = identifiant,
-        contexte = contexte
+        contexte = contexte_final
       )
     ),
     options = list(
@@ -62,7 +57,6 @@ fetch_predictions_with_context <- function(intitule, identifiant = "123456", con
   if (http_status(response)$category == "Success") {
     return(content(response, "parsed"))
   } else {
-    # Extraire les détails de l'erreur dans la réponse
     error_message <- tryCatch(
       content(response, "text"),
       error = function(e) "Impossible de lire le contenu de la réponse d'erreur"
