@@ -13,7 +13,8 @@ Sys.getenv("CLIENT_ID")
 
 source("scripts/fonction_getAccessToken.R")
 #source("scripts/fonction_fetchAppelationsContexte.R")
-source("scripts/fetch_predictions_with_context.R")
+#source("scripts/fetch_predictions_with_context.R")
+source("scripts/fetch_predictions_with_context_normalisationNAF.R")
 #source("scripts/fonction_loadNAF.R")
 source("scripts/fonction_loadNAF_normalisee.R")
 source("scripts/fonction_getFichesMetier.R")
@@ -259,8 +260,8 @@ server <- function(input, output, session) {
     selected_code <- input$code_apet
     
     if (selected_code %in% naf_data$Code) {
-      libelle_naf <- naf_data$Libellé[naf_data$Code == selected_code]
-      contexte_reactif(libelle_naf)  # Mettre à jour la valeur réactive
+      libelle_naf <- naf_data$Libellé_bis[naf_data$Code == selected_code]
+      contexte_reactif(as.character(libelle_naf))  # Convertir explicitement en texte
       updateTextInput(session, "contexte", value = libelle_naf)  # Synchroniser avec le champ texte
       message("Champ contexte mis à jour avec : ", libelle_naf)
     } else {
@@ -296,7 +297,7 @@ server <- function(input, output, session) {
     # Appeler l'API avec le mot-clé et le contexte
     result <- fetch_predictions_with_context(
       intitule = input$libelle,
-      contexte = input$contexte,
+      contexte = as.character(contexte_reactif()),  # S'assurer que c'est du texte
       naf_data = naf_data
     )
     transform_appellations(result)

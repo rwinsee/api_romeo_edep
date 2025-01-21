@@ -1,13 +1,15 @@
 get_context_from_code_naf <- function(code_naf, naf_data) {
-  # Vérifier si le code NAF est dans le bon format
   if (grepl("^\\d{4}[A-Z]$", code_naf)) {
     match <- naf_data %>% dplyr::filter(Code == code_naf)
+    message("Match trouvé : ", match$Libellé_bis[1])  # Debug : afficher le libellé trouvé
     if (nrow(match) > 0) {
-      return(match$Libellé[1])  # Retourne le libellé correspondant
+      return(as.character(match$Libellé_bis[1]))
     }
   }
-  return(code_naf)  # Si aucun match, retourne le code original
+  message("Aucun match pour le code : ", code_naf)  # Debug : afficher le code NAF non trouvé
+  return(as.character(code_naf))
 }
+
 
 load_nomenclature_naf <- function() {
   naf_url <- "https://www.insee.fr/fr/statistiques/fichier/2120875/naf2008_liste_n5.xls"
@@ -22,11 +24,23 @@ load_nomenclature_naf <- function() {
     dplyr::filter(!is.na(Code)) %>%
     dplyr::mutate(
       Code = gsub("\\.", "", Code),
-      Libellé = iconv(Libellé, from = "UTF-8", to = "UTF-8", sub = "")  # Nettoie les caractères non valides
+      Libellé = iconv(Libellé, from = "UTF-8", to = "UTF-8", sub = ""),  # Conserve le libellé brut
+      Libellé_bis = sapply(Libellé, nettoyer_libelle)  # Ajoute le libellé nettoyé
     )
   
   return(naf_data)
 }
+
+# Charger les données
+naf_data <- load_nomenclature_naf()
+
+# Tester avec un code NAF
+example_code <- "1071C"
+context <- get_context_from_code_naf(example_code, naf_data)
+
+# Afficher le résultat
+print(context)  # Résultat attendu : "boulangerie patisserie"
+
 
 
 # Charger la nomenclature au démarrage
@@ -79,3 +93,6 @@ head(naf_data)
 example_code <- "1071C"
 context <- get_context_from_code_naf(example_code, naf_data)
 print(context)
+
+colnames(naf_data)
+head(naf_data)
