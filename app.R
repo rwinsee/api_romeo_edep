@@ -62,9 +62,9 @@ ui <- navbarPage(
   useShinyjs(),
   # Ajouter les styles CSS
   tags$style(HTML("
-  #clear_contexte_icon {
+  #clear_contexte_icon, #clear_libelle_icon {
     position: absolute;
-    top: 60% !important;
+    top: 60% !important; /* Descend légèrement les croix */
     right: 8px; /* Ajuste l'espace à droite */
     transform: translateY(-50%);
     cursor: pointer;
@@ -72,11 +72,11 @@ ui <- navbarPage(
     font-size: 1em; /* Taille de la croix */
     z-index: 10;
   }
-  #clear_contexte_icon:hover {
-    color: #333;
+  #clear_contexte_icon:hover, #clear_libelle_icon:hover {
+    color: #333; /* Change la couleur au survol */
   }
   .form-control {
-    padding-right: 35px; /* Laisser plus de place pour la croix */
+    padding-right: 35px; /* Laisser de la place pour les croix */
   }
 ")),
   # Page d'accueil
@@ -151,7 +151,24 @@ ui <- navbarPage(
       sidebarLayout(
         sidebarPanel(
           h4("Interroger l'API ROMEO"),
-          textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien"),
+          #textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien"),
+          div(
+            style = "position: relative; display: inline-block; width: 100%;",
+            textInput("libelle", "Entrez un mot-clé :", value = "", placeholder = "Exemple : électricien"),
+            tags$span(
+              id = "clear_libelle_icon",
+              style = "
+      position: absolute;
+      top: 50%;
+      right: 8x;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #aaa;
+      font-size: 1em;
+      z-index: 10;",
+              icon("times")
+            )
+          ),
           # Champ pour le code APET avec autocomplétion
           selectizeInput(
             "code_apet", 
@@ -160,7 +177,7 @@ ui <- navbarPage(
             options = list(
               placeholder = "Exemple : 1071C",
               create = FALSE,
-              maxOptions = 10
+              maxOptions = 15
             )
           ),
           #textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
@@ -180,9 +197,7 @@ ui <- navbarPage(
       z-index: 10;",
               icon("times")  # L'icône FontAwesome pour la croix
             )
-          )
-          ,
-          
+          ),
           verbatimTextOutput("debug_context"),
           # Ajouter une note importante ici
           h4("Note importante"),
@@ -204,8 +219,6 @@ ui <- navbarPage(
     )
   ),
   
-  
-  # Page de références
   # Page de références
   tabPanel(
     "Références et API",
@@ -262,6 +275,7 @@ ui <- navbarPage(
 
 # Serveur
 server <- function(input, output, session) {
+
   # Récupération et transformation des données des métiers ROME
   rome_data <- reactive({
     fiches <- get_fiches_metier()
@@ -294,45 +308,75 @@ server <- function(input, output, session) {
   
   contexte_reactif <- reactiveVal("")  # Valeur réactive pour le contexte
   
-  observeEvent(input$contexte, {
-    if (is.null(input$contexte) || input$contexte == "") {
-      contexte_reactif("")  # Réinitialiser la valeur réactive associée
-      message("Le champ contexte a été réinitialisé et le contexte réactif est vide.")
+  # Observer les changements dans le champ contexte avec debounce
+  observe({
+    debounce_input <- reactive(input$contexte) %>% debounce(1000)
+    
+    observeEvent(debounce_input(), {
+      new_value <- debounce_input()
+      current_value <- contexte_reactif()
+      
+      # Mettre à jour seulement si la valeur a changé
+      if (!identical(new_value, current_value)) {
+        contexte_reactif(new_value)
+        message("Contexte mis à jour après debounce : ", new_value)
+      }
+    })
+  })
+  
+  # Observer pour gérer la sélection APET
+  observeEvent(input$code_apet, {
+    selected_code <- input$code_apet
+    
+    # Vérifier si le code APET est valide
+    if (selected_code %in% naf_data$Code) {
+      libelle_naf <- naf_data$Libellé_bis[naf_data$Code == selected_code]
+      
+      # Mettre à jour le contexte avec le libellé normalisé
+      contexte_reactif(as.character(libelle_naf))
+      updateTextInput(session, "contexte", value = libelle_naf)
+      message("Contexte mis à jour avec libellé normalisé APET : ", libelle_naf)
     } else {
-      contexte_reactif(input$contexte)  # Mettre à jour avec la saisie actuelle
-      message("Contexte mis à jour avec : ", input$contexte)
+      # Si le code APET est invalide, réinitialiser le contexte
+      contexte_reactif("Contexte non défini ou introuvable")
+      updateTextInput(session, "contexte", value = "Contexte non défini ou introuvable")
+      message("Aucun contexte APET valide, contexte réinitialisé.")
     }
   })
   
-  # Ajoutez un observer pour réagir au clic sur la croix
+  # Gérer la réinitialisation via la croix
   observe({
     runjs("
     $('#clear_contexte_icon').on('click', function() {
-      $('#contexte').val('');  // Vide le champ texte
-      Shiny.setInputValue('contexte', '');  // Met à jour la valeur côté Shiny
-      Shiny.setInputValue('clear_contexte', Math.random());  // Déclenche une action distincte
+      $('#contexte').val('');  // Vide le champ contexte
+      Shiny.setInputValue('contexte', '');  // Met à jour dans Shiny
+      Shiny.setInputValue('clear_contexte', Math.random());  // Déclenche un événement
+    });
+
+    $('#clear_libelle_icon').on('click', function() {
+      $('#libelle').val('');  // Vide le champ mot-clé
+      Shiny.setInputValue('libelle', '');  // Met à jour dans Shiny
+      Shiny.setInputValue('clear_mot_cle', Math.random());  // Déclenche un événement
     });
   ")
   })
   
-# Observer l'événement `clear_contexte` pour réinitialiser les recherches
-observeEvent(input$clear_contexte, {
-  contexte_reactif("")  # Réinitialiser le contexte réactif
-  message("Contexte réactif réinitialisé après clic sur la croix.")
-})
-
-  # Ajouter un debounce pour éviter les déclenchements multiples
-  contexte_libre <- reactive({
-    input$contexte
-  }) %>% debounce(500)  # Temporisation de 500 ms
-  
-  # Observer pour capturer les modifications du contexte libre (debounced)
-  observeEvent(contexte_libre(), {
-    if (!is.null(contexte_libre()) && contexte_libre() != "") {
-      contexte_reactif(as.character(contexte_libre()))  # Prioriser le contexte libre différé
-      message("Contexte libre (debounced) saisi par l'utilisateur : ", contexte_libre())
-    }
+  observeEvent(input$clear_contexte, {
+    contexte_reactif("")  # Réinitialiser la valeur réactive
+    message("Contexte réactif réinitialisé après clic sur la croix.")
   })
+  
+  observeEvent(input$clear_mot_cle, {
+    updateTextInput(session, "libelle", value = "")  # Réinitialiser le champ mot clé
+    message("Mot clé réinitialisé après clic sur la croix.")
+  })
+  
+  
+  # Synchroniser le champ contexte avec la valeur réactive
+  observe({
+    updateTextInput(session, "contexte", value = contexte_reactif())
+  })
+  
   
   
   # Observer pour mettre à jour la valeur réactive lorsque le champ APET est sélectionné
