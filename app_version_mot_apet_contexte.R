@@ -14,8 +14,7 @@ Sys.getenv("CLIENT_ID")
 source("scripts/fonction_getAccessToken.R")
 #source("scripts/fonction_fetchAppelationsContexte.R")
 source("scripts/fetch_predictions_with_context.R")
-#source("scripts/fonction_loadNAF.R")
-source("scripts/fonction_loadNAF_normalisee.R")
+source("scripts/fonction_loadNAF.R")
 source("scripts/fonction_getFichesMetier.R")
 
 # Fonction pour transformer les données retournées par fetch_appellations

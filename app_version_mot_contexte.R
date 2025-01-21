@@ -4,18 +4,15 @@ library(jsonlite)
 library(bslib)  # Pour des thèmes modernes Bootstrap
 
 
-readRenviron(".Renviron")
+#readRenviron(".Renviron")
 
-Sys.getenv("FT_API_ENDPOINT")
-Sys.getenv("AUTH_API_ENDPOINT")
-Sys.getenv("CLIENT_SECRET")
-Sys.getenv("CLIENT_ID")
+#Sys.getenv("FT_API_ENDPOINT")
+#Sys.getenv("AUTH_API_ENDPOINT")
+#Sys.getenv("CLIENT_SECRET")
+#Sys.getenv("CLIENT_ID")
 
 source("scripts/fonction_getAccessToken.R")
-#source("scripts/fonction_fetchAppelationsContexte.R")
-source("scripts/fetch_predictions_with_context.R")
-#source("scripts/fonction_loadNAF.R")
-source("scripts/fonction_loadNAF_normalisee.R")
+source("scripts/fonction_fetchAppelationsContexte.R")
 source("scripts/fonction_getFichesMetier.R")
 
 # Fonction pour transformer les données retournées par fetch_appellations
@@ -112,7 +109,7 @@ ui <- navbarPage(
         sidebarPanel(
           h4("Filtrer les métiers"),
           textInput("search_rome", "Rechercher dans les métiers :", placeholder = "Exemple : électricien"),
-          textInput("contexte_test", "Entrez un contexte :", placeholder = "Exemple : horticulture") # Champ de saisie pour le contexte
+          textInput("contexte", "Entrez un contexte :", placeholder = "Exemple : horticulture") # Champ de saisie pour le contexte
         ),
         mainPanel(
           h4("Liste des métiers"),
@@ -129,21 +126,9 @@ ui <- navbarPage(
       titlePanel("Prédictions d'appelations"),
       sidebarLayout(
         sidebarPanel(
-          h4("Interroger l'API ROMEO"),
+          h4("Interroger l'API ROME"),
           textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien"),
-          # Champ pour le code APET avec autocomplétion
-          selectizeInput(
-            "code_apet", 
-            "Entrez un Code APET :", 
-            choices = c("", naf_data$Code),  # Ajouter une valeur vide par défaut
-            options = list(
-              placeholder = "Exemple : 1071C",
-              create = FALSE,
-              maxOptions = 10
-            )
-          ),
-          textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
-          verbatimTextOutput("debug_context"),
+          textInput("contexte", "Entrez un contexte :", placeholder = "Exemple : horticulture"), # Champ de saisie pour le contexte
           # Ajouter une note importante ici
           h4("Note importante"),
           p(
@@ -252,53 +237,25 @@ server <- function(input, output, session) {
     )
   })
   
-  contexte_reactif <- reactiveVal("")  # Valeur réactive pour le contexte
-  
-  # Observer pour mettre à jour la valeur réactive lorsque le champ APET est sélectionné
-  observeEvent(input$code_apet, {
-    selected_code <- input$code_apet
-    
-    if (selected_code %in% naf_data$Code) {
-      libelle_naf <- naf_data$Libellé[naf_data$Code == selected_code]
-      contexte_reactif(libelle_naf)  # Mettre à jour la valeur réactive
-      updateTextInput(session, "contexte", value = libelle_naf)  # Synchroniser avec le champ texte
-      message("Champ contexte mis à jour avec : ", libelle_naf)
-    } else {
-      contexte_reactif("Contexte non défini ou introuvable")
-      updateTextInput(session, "contexte", value = "Contexte non défini ou introuvable")
-      message("Champ contexte réinitialisé : Contexte non défini ou introuvable")
-    }
-  })
-  
-  # Observer pour capturer les modifications manuelles du champ texte
-  observeEvent(input$contexte_test, {
-    contexte_reactif(input$contexte_test)  # Mettre à jour la valeur réactive avec la saisie manuelle
-    message("Valeur réactive mise à jour depuis le champ texte : ", input$contexte_test)
-  })
-  
-  # Synchroniser automatiquement la valeur réactive avec le champ contexte à tout moment
-  observe({
-    updateTextInput(session, "contexte", value = contexte_reactif())
-  })
-  
-  
-  
-  
-  # Fonctionnalité pour envoyer le contexte et le mot-clé à l'API
+  # Fonction pour récupérer les données en fonction de la saisie
+  # predictions <- reactive({
+  #  if (input$libelle == "" || is.null(input$libelle)) {
+  #    return(NULL)  # Retourne NULL si aucun critère n'est saisi
+  #  }
+  # result <- fetch_appellations(input$libelle)
+  #  transform_appellations(result)
+  #})
+  # Fonction pour récupérer les données en fonction de la saisie
   predictions <- reactive({
     if (input$libelle == "" || is.null(input$libelle)) {
       return(NULL)  # Retourne NULL si aucun critère n'est saisi
     }
     
-    # Récupérez le mot-clé et le contexte
-    contexte_test <- input$contexte_test
+    # Récupérez le contexte depuis l'interface utilisateur
+    contexte <- ifelse(input$contexte == "" || is.null(input$contexte), "", input$contexte)
     
-    # Appeler l'API avec le mot-clé et le contexte
-    result <- fetch_predictions_with_context(
-      intitule = input$libelle,
-      contexte = input$contexte,
-      naf_data = naf_data
-    )
+    # Appeler l'API avec la saisie et le contexte
+    result <- fetch_appellations(libelle = input$libelle, contexte = contexte)
     transform_appellations(result)
   })
   
@@ -368,7 +325,7 @@ server <- function(input, output, session) {
             "La meilleure correspondance pour votre recherche <strong>'", input$libelle, 
             "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
             "</strong> avec l'intitulé : <strong>", best_result$Intitule,
-            "</strong> (Code ROME : <strong>", best_result$codeAppellation, "</strong>)."
+            "</strong> (Code ROME : <strong>", best_result$CodeRome, "</strong>)."
           )
         )
       ),
@@ -382,7 +339,6 @@ server <- function(input, output, session) {
       )
     )
   })
-  
   
   
   
