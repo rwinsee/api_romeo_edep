@@ -1,24 +1,15 @@
-library(DT)
-library(httr)
-library(jsonlite)
-library(bslib)  # Pour des thèmes modernes Bootstrap
-library(shinyjs)
-library(dplyr)
+source("scripts/fonction_packaging.R")
 
-date_deploiement <- "21-01-2025"
+date_deploiement <- "22-01-2025"
 
-#readRenviron(".Renviron")
-
-#Sys.getenv("FT_API_ENDPOINT")
-#Sys.getenv("AUTH_API_ENDPOINT")
-#Sys.getenv("CLIENT_SECRET")
-#Sys.getenv("CLIENT_ID")
+readRenviron(".Renviron")
+Sys.getenv("FT_API_ENDPOINT")
+Sys.getenv("AUTH_API_ENDPOINT")
+Sys.getenv("CLIENT_SECRET")
+Sys.getenv("CLIENT_ID")
 
 source("scripts/fonction_getAccessToken.R")
-#source("scripts/fonction_fetchAppelationsContexte.R")
-#source("scripts/fetch_predictions_with_context.R")
 source("scripts/fetch_predictions_with_context_normalisationNAF.R")
-#source("scripts/fonction_loadNAF.R")
 source("scripts/fonction_loadNAF_normalisee.R")
 source("scripts/fonction_getFichesMetier.R")
 
@@ -43,102 +34,114 @@ transform_appellations <- function(result) {
 
 # Fonction pour transformer les données retournées par get_fiches_metier
 transform_fiches_metier <- function(fiches) {
+  # Vérifier si l'entrée 'fiches' est nulle ou vide
   if (is.null(fiches) || length(fiches) == 0) {
+    # Si aucune donnée n'est disponible, retourner un data.frame vide
     return(data.frame())
   }
   
-  # Extraire les données pertinentes
+  # Parcourir chaque fiche pour extraire les informations pertinentes
+  # 'lapply' applique une fonction à chaque élément de la liste 'fiches'
   do.call(rbind, lapply(fiches, function(x) {
+    # Créer un data.frame pour chaque fiche avec les colonnes suivantes :
     data.frame(
-      Code = x$code,
-      Libellé = x$metier$libelle,
-      stringsAsFactors = FALSE
+      Code = x$code,  # Code unique de la fiche métier
+      Libellé = x$metier$libelle,  # Libellé ou intitulé de la fiche métier
+      stringsAsFactors = FALSE  # Désactiver la conversion automatique des chaînes en facteurs
     )
   }))
 }
 
+
 # Interface utilisateur
 ui <- navbarPage(
+  # Titre de l'application
   title = "Application Client ROMEO",
-  theme = bs_theme(bootswatch = "flatly"),  # Thème moderne
+  
+  # Thème Bootstrap pour un style moderne
+  theme = bs_theme(bootswatch = "flatly"),
+  
+  # Utilisation de shinyjs pour des fonctionnalités interactives
   useShinyjs(),
-  # Ajouter les styles CSS
+  
+  # Ajout de styles CSS personnalisés
   tags$style(HTML("
-  /* Harmoniser les styles des champs de texte et de sélection */
+  /* Harmonisation des styles pour les champs de texte et de sélection */
   .form-control, .selectize-input {
-    font-family: Arial, sans-serif; /* Harmonisation de la police */
-    font-size: 1em; /* Taille uniforme */
-    color: #555; /* Gris moyen pour le texte */
-    background-color: #fff; /* Fond blanc */
-    border: 1px solid #ccc; /* Bordure grise claire */
-    border-radius: 4px; /* Coins arrondis */
-    padding: 8px; /* Espacement intérieur */
-    box-shadow: none; /* Supprime les ombres */
-    height: auto; /* S'assure que la hauteur est uniforme */
+    font-family: Arial, sans-serif; /* Police uniforme pour tous les champs */
+    font-size: 1em; /* Taille de texte standardisée */
+    color: #555; /* Couleur du texte en gris moyen */
+    background-color: #fff; /* Fond blanc pour tous les champs */
+    border: 1px solid #ccc; /* Bordure grise claire pour un style épuré */
+    border-radius: 4px; /* Coins légèrement arrondis pour une meilleure apparence */
+    padding: 8px; /* Espacement intérieur uniforme */
+    box-shadow: none; /* Suppression des ombres pour un design plat */
+    height: auto; /* Maintien d'une hauteur uniforme */
   }
 
-  /* Placeholder en gris clair */
+  /* Placeholder (texte indicatif dans les champs) en gris clair */
   ::placeholder {
-    color: #aaa; /* Placeholder en gris clair */
-    font-family: Arial, sans-serif;
-    font-size: 1em;
+    color: #aaa; /* Couleur grise claire pour le texte indicatif */
+    font-family: Arial, sans-serif; /* Harmonisation de la police */
+    font-size: 1em; /* Taille du texte indicatif alignée avec le reste */
   }
 
-  /* Ajuster les styles pour le champ selectize */
+  /* Styles spécifiques pour les menus déroulants (selectize) */
   .selectize-control {
-    font-family: Arial, sans-serif; /* Harmonisation de la police */
+    font-family: Arial, sans-serif; /* Police harmonisée avec les champs texte */
     font-size: 1em; /* Taille uniforme */
-    color: #555; /* Texte en gris moyen */
-    background-color: #fff; /* Fond blanc */
-    border: 1px solid #ccc; /* Bordure grise claire */
-    border-radius: 4px; /* Coins arrondis */
+    color: #555; /* Texte en gris moyen pour plus de lisibilité */
+    background-color: #fff; /* Fond blanc pour cohérence visuelle */
+    border: 1px solid #ccc; /* Bordure grise claire similaire aux champs texte */
+    border-radius: 4px; /* Coins arrondis pour un effet cohérent */
   }
 
-  /* Options dans le menu déroulant selectize */
+  /* Options dans les menus déroulants (selectize) */
   .selectize-dropdown-content {
-    font-family: Arial, sans-serif; /* Harmonisation de la police */
-    font-size: 1em; /* Taille uniforme */
-    color: #555; /* Texte en gris moyen */
-    background-color: #fff; /* Fond blanc */
+    font-family: Arial, sans-serif; /* Police harmonisée avec le reste de l'interface */
+    font-size: 1em; /* Taille standard pour les options */
+    color: #555; /* Couleur en gris moyen pour les options */
+    background-color: #fff; /* Fond blanc pour une bonne lisibilité */
   }
 
-  /* Placeholder pour le champ selectize */
+  /* Placeholder dans les champs selectize */
   .selectize-input > input {
-    color: #aaa; /* Placeholder en gris clair */
-    font-family: Arial, sans-serif;
-    font-size: 1em;
+    color: #aaa; /* Couleur grise claire pour le texte indicatif */
+    font-family: Arial, sans-serif; /* Police alignée avec le reste */
+    font-size: 1em; /* Taille uniforme avec les autres champs */
   }
 
-  /* Focus pour tous les champs */
+  /* Styles lors du focus (interaction avec les champs) */
   .form-control:focus, .selectize-input:focus, .selectize-control.single .selectize-input {
-    border-color: #aaa; /* Gris clair pour le bord lors du focus */
-    outline: none; /* Supprime la bordure extérieure */
-    box-shadow: none; /* Supprime les ombres */
+    border-color: #aaa; /* Bordure gris clair lors du focus */
+    outline: none; /* Suppression des bordures extérieures par défaut */
+    box-shadow: none; /* Suppression des ombres pour garder un style épuré */
   }
 
-  /* Survol des options */
+  /* Survol des options dans les menus déroulants */
   .selectize-dropdown-content div:hover {
-    background-color: #f7f7f7; /* Fond gris clair au survol */
-    border-radius: 4px; /* Coins arrondis pour les options */
+    background-color: #f7f7f7; /* Fond gris clair pour indiquer le survol */
+    border-radius: 4px; /* Coins arrondis pour une meilleure apparence */
   }
 
-  /* Styles pour les croix de réinitialisation */
+  /* Styles pour les icônes de réinitialisation (croix) */
   #clear_contexte_icon, #clear_libelle_icon {
-    position: absolute;
-    top: 50%;
-    right: 8px;
-    transform: translateY(-50%);
-    cursor: pointer;
-    color: #aaa;
-    font-size: 1em;
-    z-index: 10;
+    position: absolute; /* Positionnement absolu pour placer les croix dans les champs */
+    top: 50%; /* Centrage vertical par rapport au champ */
+    right: 8px; /* Distance à droite par rapport au bord du champ */
+    transform: translateY(-50%); /* Ajustement pour centrer parfaitement verticalement */
+    cursor: pointer; /* Curseur de type 'main' pour indiquer une action cliquable */
+    color: #aaa; /* Couleur grise claire pour discrétion */
+    font-size: 1em; /* Taille standard pour l'icône */
+    z-index: 10; /* Priorité d'affichage pour éviter les chevauchements */
   }
 
+  /* Changement de couleur des icônes de réinitialisation au survol */
   #clear_contexte_icon:hover, #clear_libelle_icon:hover {
-    color: #333; /* Change la couleur au survol */
+    color: #333; /* Couleur plus foncée pour indiquer une interaction */
   }
-"))
-  ,
+")
+  ),
   # Page d'accueil
   tabPanel(
     "Accueil",
@@ -186,119 +189,171 @@ ui <- navbarPage(
   
   # Page des métiers ROME
   tabPanel(
+    # Titre de l'onglet affiché dans la barre de navigation
     "Référentiel ROME",
+    
+    # Contenu de la page organisé avec un layout fluide
     fluidPage(
+      # Titre principal de la page
       titlePanel("Les Métiers du ROME"),
+      
+      # Organisation en deux colonnes avec une barre latérale et un panneau principal
       sidebarLayout(
+        # Barre latérale pour les filtres et les champs de recherche
         sidebarPanel(
+          # Titre de la section des filtres
           h4("Filtrer les métiers"),
-          textInput("search_rome", "Rechercher dans les métiers :", placeholder = "Exemple : électricien"),
-          textInput("contexte_test", "Entrez un contexte :", placeholder = "Exemple : horticulture") # Champ de saisie pour le contexte
+          
+          # Champ de saisie pour rechercher des métiers par mots-clés
+          textInput(
+            inputId = "search_rome", 
+            label = "Rechercher dans les métiers :", 
+            placeholder = "Exemple : électricien"
+          ),
+          
+          # Champ de saisie supplémentaire pour spécifier un contexte
+          textInput(
+            inputId = "contexte_test", 
+            label = "Entrez un contexte :", 
+            placeholder = "Exemple : horticulture"
+          )
         ),
+        
+        # Panneau principal pour afficher les résultats
         mainPanel(
+          # Titre pour la liste des métiers
           h4("Liste des métiers"),
+          
+          # Tableau interactif pour afficher les résultats des métiers
           DTOutput("table_rome")
         )
       )
     )
   ),
   
+  
   # Page de recherche sur les métiers ROME
   tabPanel(
-    "Recherche",
+    # Titre de l'onglet affiché dans la barre de navigation
+    "Prédictions d'appellation",
+    
+    # Contenu principal avec une mise en page fluide
     fluidPage(
+      # Titre principal de la page
       titlePanel("Prédictions d'appelations"),
+      
+      # Disposition avec une barre latérale et un panneau principal
       sidebarLayout(
+        # Barre latérale pour les champs de recherche et les filtres
         sidebarPanel(
+          # Titre de la section pour interroger l'API
           h4("Interroger l'API ROMEO"),
-          #textInput("libelle", "Entrez un mot-clé :", placeholder = "Exemple : électricien"),
+          
+          # Champ pour saisir un mot-clé avec une croix pour effacer
           div(
-            style = "position: relative; display: inline-block; width: 100%;",
-            textInput("libelle", "Entrez un mot-clé :", value = "", placeholder = "Exemple : électricien"),
-            tags$span(
+            style = "position: relative; display: inline-block; width: 100%;", # Style pour positionner la croix
+            textInput(
+              inputId = "libelle", 
+              label = "Entrez un mot-clé :", 
+              value = "", 
+              placeholder = "Exemple : électricien" # Exemple affiché pour guider l'utilisateur
+            ),
+            tags$span( # Croix pour effacer le champ
               id = "clear_libelle_icon",
               style = "
-      position: absolute;
-      top: 55%;
-      right: 8x;
-      transform: translateY(-50%);
-      cursor: pointer;
-      color: #aaa;
-      font-size: 1em;
-      z-index: 10;",
+              position: absolute;
+              top: 55%;
+              right: 8x;
+              transform: translateY(-50%);
+              cursor: pointer;
+              color: #aaa;
+              font-size: 1em;
+              z-index: 10;",
               icon("times")
             )
           ),
-          # Champ pour le code APET avec autocomplétion
+          
+          # Champ pour saisir un Code APET avec autocomplétion
           selectizeInput(
-            "code_apet", 
-            "Entrez un Code APET :", 
-            choices = c("", naf_data$Code),  # Ajouter une valeur vide par défaut
+            inputId = "code_apet", 
+            label = "Entrez un Code APET :", 
+            choices = c("", naf_data$Code), # Options possibles basées sur les codes NAF
             options = list(
-              placeholder = "Exemple : 1071C",
-              create = FALSE,
-              maxOptions = 15
+              placeholder = "Exemple : 1071C", # Exemple pour guider l'utilisateur
+              create = FALSE,                 # Désactive la création d'options personnalisées
+              maxOptions = 15                 # Limite le nombre d'options affichées
             )
           ),
-          #textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
+          
+          # Champ pour saisir un contexte avec une croix pour effacer
           div(
-            style = "position: relative; display: inline-block; width: 100%;",
-            textInput("contexte", "Entrez un contexte :", value = "", placeholder = "Exemple : horticulture"),
+            style = "position: relative; display: inline-block; width: 100%;", # Style pour positionner la croix
+            textInput(
+              inputId = "contexte", 
+              label = "Entrez un contexte :", 
+              value = "", 
+              placeholder = "Exemple : horticulture" # Exemple affiché pour guider l'utilisateur
+            ),
+            # Croix pour réinitialiser le champ "contexte"
             tags$span(
-              id = "clear_contexte_icon",
+              id = "clear_contexte_icon", # Identifiant unique pour la croix
               style = "
-      position: absolute;
-      top: 55%;
-      right: 8px;
-      transform: translateY(-50%);
-      cursor: pointer;
-      color: #aaa;
-      font-size: 1em;
-      z-index: 10;",
-              icon("times")  # L'icône FontAwesome pour la croix
+    position: absolute;          /* Position absolue par rapport à son conteneur */
+    top: 55%;                    /* Position verticale au centre (ajustée pour alignement visuel) */
+    right: 8px;                  /* Espacement depuis le bord droit */
+    transform: translateY(-50%); /* Centre verticalement en tenant compte de la hauteur de l'élément */
+    cursor: pointer;             /* Changement de curseur pour indiquer l'interaction */
+    color: #aaa;                 /* Couleur gris clair par défaut */
+    font-size: 1em;              /* Taille de la croix */
+    z-index: 10;                 /* Assure que la croix reste au-dessus des autres éléments */
+  ",
+              icon("times") # L'icône de croix provenant de FontAwesome
             )
+            
           ),
+          
+          # Zone de texte pour afficher les informations de débogage sur le contexte
           verbatimTextOutput("debug_context"),
-          # Ajouter une note importante ici
-          h4("Note importante"),
-          p(
-            strong("À noter : "), 
-            "L'importance des accents dans la saisie ne doit pas être négligée. Par exemple, une recherche avec ", 
-            strong("affréteur"), 
-            " peut donner des résultats différents de ", 
-            strong("affreteur"), 
-            ". Pensez à vérifier votre saisie pour obtenir les meilleurs résultats."
+          
+          # Note importante pour sensibiliser les utilisateurs sur l'importance des accents
+          div(
+            style = "margin-top: 10px; font-size: 0.9em; color: #555;", # Style général de la note
+            h6(
+              "Note importante", 
+              style = "font-weight: bold; color: #333; margin-bottom: 5px;" # Style du titre
+            ),
+            p(
+              strong("À noter : "), 
+              "L'importance des accents dans la saisie ne doit pas être négligée. Par exemple, une recherche avec ", 
+              strong("affréteur"), 
+              " peut donner des résultats différents de ", 
+              strong("affreteur"), 
+              ". Pensez à vérifier votre saisie pour obtenir les meilleurs résultats."
+            )
           )
         ),
+        
+        # Panneau principal pour afficher les résultats et les notes de lecture
         mainPanel(
-          uiOutput("search_results"),  # Affichage conditionnel des résultats
-          uiOutput("note_lecture")    # Note de lecture
+          # Affichage conditionnel des résultats de la recherche
+          uiOutput("search_results"),
           
+          # Note de lecture affichée après les résultats
+          uiOutput("note_lecture")
         )
       )
     )
   ),
   
+  
   # Page de références
   tabPanel(
-    "Références et API",
+    "A propos",
     fluidPage(
       titlePanel("Références et documentation"),
       fluidRow(
         column(
           8,
-          h4("Documentation et crédits"),
-          p("Cette application utilise l'API ROME de France Travail pour récupérer des données sur les métiers et appellations."),
-          p("Pour plus d'information sur les API France Travail : ",
-            a("Documentation API France Travail", href = "https://francetravail.io/produits-partages/documentation", target = "_blank")
-          ),
-          p("Pour plus d'informations sur l'API ROME : ",
-            a("Documentation API ROME", href = "https://francetravail.io/produits-partages/catalogue/romeo-2/documentation#/api-reference/", target = "_blank")
-          ),
-          p("Pour en savoir plus sur France Travail, visitez le site officiel : ",
-            a("France Travail", href = "https://www.francetravail.fr", target = "_blank")
-          ),
-          hr(),  # Séparateur
           h4("Informations techniques"),
           tags$ul(
             tags$li(
@@ -319,45 +374,95 @@ ui <- navbarPage(
               a("Plateforme SSPCloud de l'INSEE ", href = "https://datalab.sspcloud.fr/", target = "_blank")
             ),
             tags$li(
-              HTML("Version actuelle : <strong>0.0.3</strong>")
+              HTML(paste0("Version actuelle : <strong>0.0.3</strong> (", date_deploiement, ")"))
             ),
             tags$li(
               HTML("Historique des versions : "),
               a("Releases GitHub", href = "https://github.com/rwinsee/api_romeo_edep/releases", target = "_blank")
-            ),
-            tags$li(
-              HTML(paste0("Date de mise à jour : <strong>", date_deploiement, "</strong>"))
             )
+          ),
+          hr(),  # Séparateur
+          
+          h4("Qu’est-ce que le ROME de France Travail ?"),
+          p(HTML("Le <strong>Répertoire Opérationnel des Métiers et des Emplois (ROME)</strong> est un référentiel créé par <strong>France Travail</strong> (anciennement Pôle emploi). Il sert à :")),
+          tags$ul(
+            tags$li("Classer les métiers et les emplois en France en regroupant les activités professionnelles similaires sous un même code ROME."),
+            tags$li("Faciliter les correspondances entre les offres et les demandes d’emploi :"),
+            tags$ul(
+              tags$li("Chaque métier ou emploi est associé à un code unique (exemple : M1102 pour “Responsable des achats”)."),
+              tags$li("Décrire les compétences, activités et savoir-faire nécessaires pour chaque emploi ou métier.")
+            )
+          ),
+          p("Le ROME est une ressource clé pour les recruteurs, les demandeurs d’emploi, les conseillers en insertion, et les professionnels de la formation. Il aide à uniformiser les définitions des métiers et facilite la compréhension du marché du travail."),
+          hr(),
+          
+          h4("Qu’est-ce que l’API ROMEO ?"),
+          p(HTML("L’API <strong>ROMEO (Référentiel Opérationnel des Métiers et des Emplois Opérationnel)</strong> est une interface informatique développée par <strong>France Travail</strong>. Elle permet aux applications externes d’interagir avec les données du ROME.")),
+          tags$ul(
+            tags$li(HTML("<strong>Rapprochement de texte libre :</strong> Elle utilise des algorithmes d’intelligence artificielle pour associer un texte libre (par exemple, une description de poste ou un intitulé de métier) à des appellations ou métiers du ROME.")),
+            tags$li(HTML("<strong>Recherche et consultation :</strong> Les utilisateurs peuvent interroger l’API pour explorer les métiers et appellations correspondant à une recherche.")),
+            tags$li(HTML("<strong>Scores de correspondance :</strong> L’API retourne des résultats avec un score de pertinence qui indique à quel point le texte saisi correspond à une appellation ou un métier.")),
+            tags$li(HTML("<strong>Interopérabilité :</strong> L’API est utilisée par des plateformes d’emploi, des outils RH, ou des systèmes d’aide à l’orientation pour automatiser le traitement des données métiers."))
+          ),
+          hr(),
+          
+          h4("Différences entre le ROME et l’API ROMEO"),
+          tableOutput("comparison_table"),  # Une table HTML pour afficher les différences
+          p("Pour plus d'informations sur l'utilisation de l'API ROMEO dans votre service, consultez la documentation ci-dessous."),
+          hr(),
+          
+          h4("Documentation et crédits"),
+          p("Cette application utilise l'API ROMEO de France Travail pour récupérer des données sur les métiers et appellations."),
+          p("Pour plus d'information sur les API France Travail : ",
+            a("Documentation API France Travail", href = "https://francetravail.io/produits-partages/documentation", target = "_blank")
+          ),
+          p("Pour plus d'informations sur l'API ROMEO : ",
+            a("Documentation API ROMEO", href = "https://francetravail.io/produits-partages/catalogue/romeo-2/documentation#/api-reference/", target = "_blank")
+          ),
+          p("Pour en savoir plus sur France Travail, visitez le site officiel : ",
+            a("France Travail", href = "https://www.francetravail.fr", target = "_blank")
           )
         )
       )
     )
   )
   
+  
 )
 
 # Serveur
 server <- function(input, output, session) {
-
+  
   # Récupération et transformation des données des métiers ROME
   rome_data <- reactive({
+    # Étape 1 : Récupérer les fiches métiers
+    # La fonction `get_fiches_metier()` interroge l'API ou une autre source pour obtenir les fiches métiers brutes.
     fiches <- get_fiches_metier()
+    
+    # Étape 2 : Transformer les données récupérées
+    # La fonction `transform_fiches_metier()` reformate les fiches pour qu'elles soient exploitables dans l'application.
     transform_fiches_metier(fiches)
   })
   
   # Filtrer les métiers en fonction de la recherche
   filtered_data <- reactive({
-    req(rome_data())  # Assure que les données sont disponibles
+    # Étape 1 : Vérifier que les données des métiers ROME sont disponibles
+    req(rome_data())  # Si `rome_data()` est NULL ou invalide, l'exécution s'arrête ici.
+    
+    # Étape 2 : Si aucun mot-clé n'est saisi, retourner toutes les données
     if (input$search_rome == "" || is.null(input$search_rome)) {
-      return(rome_data())  # Pas de filtre si la barre de recherche est vide
+      return(rome_data())  # Aucun filtre n'est appliqué
     } else {
+      # Étape 3 : Appliquer un filtre sur les données disponibles
+      # On recherche le mot-clé saisi dans deux colonnes : "Libellé" (nom des métiers) et "Code" (codes ROME).
       rome_data() %>%
         dplyr::filter(
-          grepl(input$search_rome, Libellé, ignore.case = TRUE) |  # Recherche dans les libellés
-            grepl(input$search_rome, Code, ignore.case = TRUE)  # Recherche dans les codes
+          grepl(input$search_rome, Libellé, ignore.case = TRUE) |  # Recherche insensible à la casse dans les libellés
+            grepl(input$search_rome, Code, ignore.case = TRUE)    # Recherche insensible à la casse dans les codes
         )
     }
   })
+  
   
   # Afficher le tableau des métiers
   output$table_rome <- renderDT({
@@ -506,17 +611,29 @@ server <- function(input, output, session) {
         h4("Guide de recherche : comment utiliser les champs ?"),
         p("Pour lancer une recherche, vous pouvez utiliser les combinaisons suivantes :"),
         tags$ul(
-          tags$li("Mot-clé uniquement : Exemple : 'vendeur'"),
-          tags$li("Mot-clé et Code APET : Exemple : Mot-clé 'vendeur', Code APET '1071C', le contexte s'actualisera selon le libellé normalisé de l'APET choisie"),
-          tags$li("Mot-clé et Contexte : Exemple : Mot-clé 'vendeur', Contexte 'boulangerie'"),
-          tags$li("Mot-clé, Code APET, et Contexte : Exemple : Mot-clé 'vendeur', Code APET '1071C', Contexte 'commerce de détail'. Toutefois, le mot-clef et le contexte prendront le dessus.")
+          tags$li("Mot-clé uniquement : Exemple : ", em("'vendeur'")),
+          tags$li(
+            "Mot-clé et Code APET : Exemple : Mot-clé ", em("'vendeur'"), 
+            ", Code APET ", em("'1071C'"), 
+            ", le contexte s'actualisera selon le libellé normalisé de l'APET choisie"
+          ),
+          tags$li(
+            "Mot-clé et Contexte : Exemple : Mot-clé ", em("'vendeur'"), 
+            ", Contexte ", em("'boulangerie'")
+          ),
+          tags$li(
+            "Mot-clé, Code APET, et Contexte : Exemple : Mot-clé ", em("'vendeur'"), 
+            ", Code APET ", em("'1071C'"), 
+            ", Contexte ", em("'commerce de détail'"), 
+            ". Toutefois, le mot-clé et le contexte prendront le dessus."
+          )
         ),
         h4("Exemples de recherche :"),
         tags$ul(
-          tags$li("Mot-clé : 'vendeur', Contexte : 'boulangerie'"),
-          tags$li("Mot-clé : 'professeur', Contexte : 'enseignement supérieur'"),
-          tags$li("Mot-clé : 'boucher', Code APET : '1011Z'"),
-          tags$li("Mot-clé : 'plombier', Code APET : '4322A', Contexte : 'travaux sanitaires'")
+          tags$li("Mot-clé : ", em("'vendeur'"), ", Contexte : ", em("'boulangerie'")),
+          tags$li("Mot-clé : ", em("'professeur'"), ", Contexte : ", em("'enseignement supérieur'")),
+          tags$li("Mot-clé : ", em("'boucher'"), ", Code APET : ", em("'1011Z'")),
+          tags$li("Mot-clé : ", em("'plombier'"), ", Code APET : ", em("'4322A'"), ", Contexte : ", em("'travaux sanitaires'"))
         ),
         p("N'hésitez pas à ajuster vos recherches en fonction des informations que vous avez pour obtenir des résultats plus précis.")
       )
@@ -537,21 +654,32 @@ server <- function(input, output, session) {
     if (is.null(pred_data)) {
       return(NULL)  # Retourne rien si aucune donnée n'est trouvée
     }
+    
     # Convertir le score en pourcentage
     pred_data$Score <- round(pred_data$Score * 100, 1)
     pred_data$Score <- paste0(pred_data$Score, "%")
     
-    # Sélectionner uniquement les colonnes "Appellation" et "Score"
+    # Ajouter un lien sous l'Appellation avec un style pour réduire la taille de la police
+    pred_data$LibelleAppellation <- paste0(
+      pred_data$LibelleAppellation, 
+      "     <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
+      pred_data$CodeRome, 
+      "' target='_blank' style='font-size: 0.7em; '>Voir la fiche métier</a>"
+    )
+    
+    # Sélectionner uniquement les colonnes nécessaires
     pred_data <- pred_data[, c("CodeAppellation", "LibelleAppellation", "Score")]
     
     datatable(
       pred_data,
       rownames = FALSE,
       options = list(pageLength = 10),
-      colnames = c(#"Code Rome", "Intitulé", 
-        "Code OGR", "Appellation", "Score")
+      escape = FALSE,  # Permet d'afficher les liens HTML
+      colnames = c("Code OGR", "Appellation", "Score")
     )
   })
+  
+  
   
   # Note de lecture basée sur le score le plus élevé
   output$note_lecture <- renderUI({
@@ -585,9 +713,10 @@ server <- function(input, output, session) {
             "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
             "</strong> avec l'intitulé : <strong>", best_result$Intitule,
             "</strong> (Code ROME : <strong>", best_result$CodeAppellation, 
-            "</strong>, code fiche métier ROME : <strong>", best_result$CodeRome, "</strong>)."
+            "</strong>, code fiche métier ROME : <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
+            best_result$CodeRome, 
+            "' target='_blank'><strong>", best_result$CodeRome, "</strong></a>)."
           )
-          
         )
       ),
       p(
@@ -608,4 +737,4 @@ server <- function(input, output, session) {
 }
 
 # Lancer l'application Shiny
-shinyApp(ui, server) 
+shinyApp(ui, server)

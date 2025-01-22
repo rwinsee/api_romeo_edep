@@ -10,13 +10,16 @@ RUN apt-get update && apt-get install -y \
 
 # Étape 3 : Copier l'application dans le conteneur
 COPY app.R /srv/shiny-server/
+COPY scripts/fonction_packaging.R /srv/shiny-server/scripts/
+
+COPY scripts/fonction_getAccessToken.R /srv/shiny-server/scripts/
+COPY scripts/fetch_predictions_with_context_normalisationNAF.R /srv/shiny-server/scripts/
+COPY scripts/fonction_loadNAF_normalisee.R /srv/shiny-server/scripts/
+COPY scripts/fonction_getFichesMetier.R /srv/shiny-server/scripts/
+
 COPY scripts/fonction_fetchAppelations.R /srv/shiny-server/scripts/
 COPY scripts/fonction_fetchAppelationsContexte.R /srv/shiny-server/scripts/
-COPY scripts/fonction_getFichesMetier.R /srv/shiny-server/scripts/
-COPY scripts/fonction_getAccessToken.R /srv/shiny-server/scripts/
 COPY scripts/fonction_loadNAF.R /srv/shiny-server/scripts/
-COPY scripts/fonction_loadNAF_normalisee.R /srv/shiny-server/scripts/
-COPY scripts/fetch_predictions_with_context_normalisationNAF.R /srv/shiny-server/scripts/
 
 # Étape 4 : Installer les packages R nécessaires
 RUN R -e "install.packages(c('shiny', 'DT', 'httr', 'jsonlite', 'shinyjs', 'dplyr'), repos='http://cran.rstudio.com/')"
