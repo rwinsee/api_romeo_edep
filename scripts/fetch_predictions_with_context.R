@@ -16,7 +16,7 @@ fetch_predictions_with_context <- function(intitule, identifiant = "123456", con
   
   # Fournir une valeur par défaut si le contexte est invalide
   if (is.null(contexte) || contexte == "") {
-    contexte <- "Contexte non défini ou introuvable"
+    contexte <- ""
   }
   
   # Préparer le corps de la requête

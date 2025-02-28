@@ -1,6 +1,6 @@
 source("scripts/fonction_packaging.R")
 
-date_deploiement <- "22-01-2025"
+date_deploiement <- "28-02-2025"
 
 readRenviron(".Renviron")
 Sys.getenv("FT_API_ENDPOINT")
@@ -80,11 +80,19 @@ ui <- navbarPage(
   }
 
   /* Placeholder (texte indicatif dans les champs) en gris clair */
-  ::placeholder {
-    color: #aaa; /* Couleur grise claire pour le texte indicatif */
-    font-family: Arial, sans-serif; /* Harmonisation de la police */
-    font-size: 1em; /* Taille du texte indicatif alignée avec le reste */
+  ::placeholder, 
+  .form-control::placeholder,
+  .selectize-input::placeholder {
+    color: #aaa !important; /* Gris clair uniforme */
+    font-family: Arial, sans-serif !important; /* Police uniforme */
+    font-size: 1em !important; /* Taille cohérente */
   }
+
+  /* Appliquer la même couleur aux champs non sélectionnés */
+  .form-control, .selectize-input {
+    color: #555 !important; /* Gris plus foncé pour le texte saisi */
+  }
+
 
   /* Styles spécifiques pour les menus déroulants (selectize) */
   .selectize-control {
@@ -208,7 +216,7 @@ ui <- navbarPage(
           textInput(
             inputId = "search_rome", 
             label = "Rechercher dans les métiers :", 
-            placeholder = "Exemple : électricien"
+            placeholder = "Exemple : vendeur"
           ),
           
           # Champ de saisie supplémentaire pour spécifier un contexte
@@ -256,7 +264,7 @@ ui <- navbarPage(
               inputId = "libelle", 
               label = "Entrez un mot-clé :", 
               value = "", 
-              placeholder = "Exemple : électricien" # Exemple affiché pour guider l'utilisateur
+              placeholder = "Exemple : vendeur" # Exemple affiché pour guider l'utilisateur
             ),
             tags$span( # Croix pour effacer le champ
               id = "clear_libelle_icon",
@@ -496,21 +504,26 @@ server <- function(input, output, session) {
   observeEvent(input$code_apet, {
     selected_code <- input$code_apet
     
-    # Vérifier si le code APET est valide
     if (selected_code %in% naf_data$Code) {
+      # On récupère le libellé APET correspondant
       libelle_naf <- naf_data$Libellé_bis[naf_data$Code == selected_code]
       
-      # Mettre à jour le contexte avec le libellé normalisé
       contexte_reactif(as.character(libelle_naf))
-      updateTextInput(session, "contexte", value = libelle_naf)
-      message("Contexte mis à jour avec libellé normalisé APET : ", libelle_naf)
+      updateTextInput(session, "contexte", value = libelle_naf, placeholder = "Exemple : boulangerie")
+      
+      message("✅ Contexte mis à jour avec libellé normalisé APET : ", libelle_naf)
+      
     } else {
-      # Si le code APET est invalide, réinitialiser le contexte
-      contexte_reactif("Contexte non défini ou introuvable")
-      updateTextInput(session, "contexte", value = "Contexte non défini ou introuvable")
-      message("Aucun contexte APET valide, contexte réinitialisé.")
+      # APET supprimé → on vide le champ "contexte" et on affiche seulement le placeholder
+      contexte_reactif("")  
+      updateTextInput(session, "contexte", value = "", placeholder = "Exemple : Boulangerie")
+      
+      message("🚫 APET supprimé, réinitialisation du contexte sans texte actif.")
     }
   })
+  
+  
+  
   
   # Gérer la réinitialisation via la croix
   observe({
@@ -560,7 +573,7 @@ server <- function(input, output, session) {
         message("Contexte normalisé mis à jour avec : ", libelle_naf)
       }
     } else {
-      contexte_reactif("Contexte non défini ou introuvable")
+      contexte_reactif("")
       updateTextInput(session, "contexte", value = "Contexte non défini ou introuvable")
       message("Aucun contexte APET valide, contexte réinitialisé.")
     }
@@ -678,8 +691,6 @@ server <- function(input, output, session) {
       colnames = c("Code OGR", "Appellation", "Score")
     )
   })
-  
-  
   
   # Note de lecture basée sur le score le plus élevé
   output$note_lecture <- renderUI({

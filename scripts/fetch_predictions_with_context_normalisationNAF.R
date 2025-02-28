@@ -1,22 +1,29 @@
 fetch_predictions_with_context <- function(intitule, identifiant = "123456", contexte = "", naf_data) {
+  
+  print("🟢 DEBUG : Début de fetch_predictions_with_context()")
+  print(paste("Intitulé reçu :", intitule))
+  print(paste("Contexte reçu :", contexte))
+  
   ft_api_endpoint <- Sys.getenv("FT_API_ENDPOINT")
   access_token <- get_access_token()
   
   # Vérifiez si le contexte libre est saisi
-  if (!is.null(contexte) && contexte != "") {
+  if (!is.null(contexte) && trimws(contexte) != "") {
+    print(paste("✅ Contexte utilisateur utilisé :", contexte))
     message("Contexte libre saisi par l'utilisateur : ", contexte)
-    contexte_final <- enc2utf8(as.character(contexte))  # Utilisez directement le contexte libre
+    contexte_final <- enc2utf8(as.character(contexte))  # Utilisation directe du contexte libre
   } else {
-    # Sinon, utilisez le contexte basé sur le code APET
     matched_context <- get_context_from_code_naf(contexte, naf_data)
-    if (!is.null(matched_context) && matched_context != contexte) {
-      message("Contexte basé sur le code APET : ", matched_context)
+    if (!is.null(matched_context) && matched_context != "") {
+      message("🔄 Contexte normalisé APET utilisé :", matched_context)
       contexte_final <- enc2utf8(as.character(matched_context))
     } else {
-      contexte_final <- "Contexte non défini ou introuvable"
-      message("Aucun contexte disponible, utilisation du contexte par défaut.")
+      contexte_final <- ""  # S'assurer que le contexte reste vide et non une phrase fixe
+      message("🚫 Aucun contexte valide détecté, contexte ignoré.")
     }
   }
+  
+
   
   # Préparer le corps de la requête
   body <- list(
@@ -36,6 +43,9 @@ fetch_predictions_with_context <- function(intitule, identifiant = "123456", con
   
   # Afficher le corps de la requête pour le débogage
   message("Corps de la requête : ", toJSON(body, auto_unbox = TRUE, pretty = TRUE))
+  
+  print("📤 Corps de la requête envoyé à l'API :")
+  print(toJSON(body, auto_unbox = TRUE, pretty = TRUE))
   
   # Envoyer la requête POST
   response <- tryCatch({
