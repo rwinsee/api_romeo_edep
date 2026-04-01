@@ -15,7 +15,7 @@ source("scripts/fonction_getFichesMetier.R")
 source("scripts/fonction_load_domaines_rome.R")
 
 domaines_rome <- load_domaines_rome("data/cr_gd_dp_v4_utf8.csv")
-
+ 
 # Fonction pour transformer les données retournées par fetch_appellations
 # transform_appellations <- function(result) {
 #   if (is.null(result) || length(result) == 0) {
