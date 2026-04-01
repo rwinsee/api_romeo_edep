@@ -12,24 +12,49 @@ source("scripts/fonction_getAccessToken.R")
 source("scripts/fetch_predictions_with_context_normalisationNAF.R")
 source("scripts/fonction_loadNAF_normalisee.R")
 source("scripts/fonction_getFichesMetier.R")
+source("scripts/fonction_load_domaines_rome.R")
+
+domaines_rome <- load_domaines_rome("data/cr_gd_dp_v4_utf8.csv")
 
 # Fonction pour transformer les données retournées par fetch_appellations
-transform_appellations <- function(result) {
+# transform_appellations <- function(result) {
+#   if (is.null(result) || length(result) == 0) {
+#     return(data.frame())
+#   }
+#   
+#   # Extraire les données pertinentes
+#   do.call(rbind, lapply(result[[1]]$metiersRome, function(x) {
+#     data.frame(
+#       CodeRome = x$codeRome, # Code ROME de la fiche parente (3premiers digit domaine pro et les deux derniers fiches)  
+#       Intitule = x$libelleRome, # Libellé de la fiche ROME parente
+#       LibelleAppellation = x$libelleAppellation, # Libellé de l'appellation métier du ROME prédite
+#       CodeAppellation = x$codeAppellation, # Code de l'appellation métier ROME prédite
+#       Score = x$scorePrediction, # Score de confiance de l'IA suite à sa prédiction (plus on est proche de 1 plus l'IA est confiante)
+#       stringsAsFactors = FALSE
+#     )
+#   }))
+# }
+transform_appellations <- function(result, domaines_rome = NULL) {
   if (is.null(result) || length(result) == 0) {
     return(data.frame())
   }
   
-  # Extraire les données pertinentes
-  do.call(rbind, lapply(result[[1]]$metiersRome, function(x) {
+  df <- do.call(rbind, lapply(result[[1]]$metiersRome, function(x) {
     data.frame(
-      CodeRome = x$codeRome, # Code ROME de la fiche parente (3premiers digit domaine pro et les deux derniers fiches)  
-      Intitule = x$libelleRome, # Libellé de la fiche ROME parente
-      LibelleAppellation = x$libelleAppellation, # Libellé de l'appellation métier du ROME prédite
-      CodeAppellation = x$codeAppellation, # Code de l'appellation métier ROME prédite
-      Score = x$scorePrediction, # Score de confiance de l'IA suite à sa prédiction (plus on est proche de 1 plus l'IA est confiante)
+      CodeRome = trimws(x$codeRome),
+      Intitule = x$libelleRome,
+      LibelleAppellation = x$libelleAppellation,
+      CodeAppellation = x$codeAppellation,
+      Score = x$scorePrediction,
       stringsAsFactors = FALSE
     )
   }))
+  
+  if (!is.null(domaines_rome) && nrow(df) > 0) {
+    df <- dplyr::left_join(df, domaines_rome, by = "CodeRome")
+  }
+  
+  df
 }
 
 # Fonction pour transformer les données retournées par get_fiches_metier
@@ -610,7 +635,8 @@ server <- function(input, output, session) {
       contexte = contexte_final,
       naf_data = naf_data
     )
-    transform_appellations(result)
+    # transform_appellations(result)
+    transform_appellations(result, domaines_rome = domaines_rome)
   })
   
   
@@ -662,85 +688,192 @@ server <- function(input, output, session) {
   
   
   # Affichage des prédictions dans le tableau
+  # output$table_predictions <- renderDT({
+  #   pred_data <- predictions()
+  #   if (is.null(pred_data)) {
+  #     return(NULL)  # Retourne rien si aucune donnée n'est trouvée
+  #   }
+  #   
+  #   # Convertir le score en pourcentage
+  #   pred_data$Score <- round(pred_data$Score * 100, 1)
+  #   pred_data$Score <- paste0(pred_data$Score, "%")
+  #   
+  #   # Ajouter un lien sous l'Appellation avec un style pour réduire la taille de la police
+  #   pred_data$LibelleAppellation <- paste0(
+  #     pred_data$LibelleAppellation, 
+  #     "     <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
+  #     pred_data$CodeRome, 
+  #     "' target='_blank' style='font-size: 0.7em; '>Voir la fiche métier</a>"
+  #   )
+  #   
+  #   # Sélectionner uniquement les colonnes nécessaires
+  #   pred_data <- pred_data[, c("CodeAppellation", "LibelleAppellation", "Score")]
+  #   
+  #   datatable(
+  #     pred_data,
+  #     rownames = FALSE,
+  #     options = list(pageLength = 10),
+  #     escape = FALSE,  # Permet d'afficher les liens HTML
+  #     colnames = c("Code OGR", "Appellation", "Score")
+  #   )
+  # })
   output$table_predictions <- renderDT({
     pred_data <- predictions()
-    if (is.null(pred_data)) {
-      return(NULL)  # Retourne rien si aucune donnée n'est trouvée
+    
+    if (is.null(pred_data) || nrow(pred_data) == 0) {
+      return(NULL)
     }
     
-    # Convertir le score en pourcentage
-    pred_data$Score <- round(pred_data$Score * 100, 1)
-    pred_data$Score <- paste0(pred_data$Score, "%")
+    pred_data$ScoreNum <- pred_data$Score
+    pred_data$Score <- paste0(round(pred_data$Score * 100, 1), "%")
     
-    # Ajouter un lien sous l'Appellation avec un style pour réduire la taille de la police
     pred_data$LibelleAppellation <- paste0(
-      pred_data$LibelleAppellation, 
-      "     <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
-      pred_data$CodeRome, 
-      "' target='_blank' style='font-size: 0.7em; '>Voir la fiche métier</a>"
+      pred_data$LibelleAppellation,
+      " <br><a href='https://candidat.francetravail.fr/metierscope/fiche-metier/",
+      pred_data$CodeRome,
+      "' target='_blank' style='font-size: 0.8em;'>Voir la fiche métier</a>"
     )
     
-    # Sélectionner uniquement les colonnes nécessaires
-    pred_data <- pred_data[, c("CodeAppellation", "LibelleAppellation", "Score")]
+    # Colonnes à afficher
+    colonnes_affichees <- c(
+      "CodeAppellation",
+      "LibelleAppellation",
+      "CodeRome",
+      "Intitule",
+      "CodeGrandDomaine",
+      "LibelleGrandDomaine",
+      "CodeDomaineProfessionnel",
+      "LibelleDomaineProfessionnel",
+      "Score"
+    )
+    
+    # Sécuriser si certaines colonnes sont absentes
+    colonnes_affichees <- intersect(colonnes_affichees, names(pred_data))
+    pred_data <- pred_data[, colonnes_affichees, drop = FALSE]
     
     datatable(
       pred_data,
       rownames = FALSE,
-      options = list(pageLength = 10),
-      escape = FALSE,  # Permet d'afficher les liens HTML
-      colnames = c("Code OGR", "Appellation", "Score")
+      escape = FALSE,
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE
+      ),
+      colnames = c(
+        "Code OGR",
+        "Appellation",
+        "Code ROME",
+        "Métier générique",
+        "Code grand domaine",
+        "Grand domaine",
+        "Code domaine professionnel",
+        "Domaine professionnel",
+        "Score"
+      )[seq_along(colonnes_affichees)]
     )
   })
   
   # Note de lecture basée sur le score le plus élevé
+  # output$note_lecture <- renderUI({
+  #   pred_data <- predictions()
+  #   
+  #   # Debug: inspecter les données de pred_data
+  #   if (!is.null(pred_data)) {
+  #     message("Structure de pred_data :")
+  #     print(str(pred_data))
+  #   }
+  #   
+  #   if (is.null(pred_data) || nrow(pred_data) == 0) {
+  #     return(NULL)  # Pas de note si aucun résultat
+  #   }
+  #   
+  #   # Obtenez le résultat avec le score le plus élevé
+  #   # best_result <- pred_data[which.max(as.numeric(pred_data$Score)), ]
+  #   best_result <- pred_data[which.max(pred_data$Score), ]
+  #   
+  #   # Debug: inspecter les données de best_result
+  #   message("Structure de best_result :")
+  #   print(str(best_result))
+  #   
+  #   # Texte explicatif
+  #   div(
+  #     style = "margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;",
+  #     h4("Note de lecture"),
+  #     p(
+  #       HTML(
+  #         paste0(
+  #           "La meilleure correspondance pour votre recherche <strong>'", input$libelle, 
+  #           "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
+  #           "</strong> avec l'intitulé : <strong>", best_result$Intitule,
+  #           "</strong> (Code ROME : <strong>", best_result$CodeAppellation, 
+  #           "</strong>, code fiche métier ROME : <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
+  #           best_result$CodeRome, 
+  #           "' target='_blank'><strong>", best_result$CodeRome, "</strong></a>)."
+  #         )
+  #       )
+  #     ),
+  #     p(
+  #       HTML(
+  #         paste0(
+  #           "Ce résultat a un score de <strong>", round(as.numeric(best_result$Score) * 100, 1), 
+  #           "%</strong>, ce qui indique un haut degré de correspondance entre votre saisie et cette appellation."
+  #         )
+  #       )
+  #     )
+  #   )
+  # })
   output$note_lecture <- renderUI({
     pred_data <- predictions()
     
-    # Debug: inspecter les données de pred_data
-    if (!is.null(pred_data)) {
-      message("Structure de pred_data :")
-      print(str(pred_data))
-    }
-    
     if (is.null(pred_data) || nrow(pred_data) == 0) {
-      return(NULL)  # Pas de note si aucun résultat
+      return(NULL)
     }
     
-    # Obtenez le résultat avec le score le plus élevé
-    best_result <- pred_data[which.max(as.numeric(pred_data$Score)), ]
+    best_result <- pred_data[which.max(pred_data$Score), ]
     
-    # Debug: inspecter les données de best_result
-    message("Structure de best_result :")
-    print(str(best_result))
-    
-    # Texte explicatif
     div(
       style = "margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;",
       h4("Note de lecture"),
       p(
         HTML(
           paste0(
-            "La meilleure correspondance pour votre recherche <strong>'", input$libelle, 
-            "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
-            "</strong> avec l'intitulé : <strong>", best_result$Intitule,
-            "</strong> (Code ROME : <strong>", best_result$CodeAppellation, 
-            "</strong>, code fiche métier ROME : <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
-            best_result$CodeRome, 
-            "' target='_blank'><strong>", best_result$CodeRome, "</strong></a>)."
+            "La meilleure correspondance pour votre recherche <strong>'", input$libelle,
+            "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation,
+            "</strong>."
           )
         )
       ),
       p(
         HTML(
           paste0(
-            "Ce résultat a un score de <strong>", round(as.numeric(best_result$Score) * 100, 1), 
-            "%</strong>, ce qui indique un haut degré de correspondance entre votre saisie et cette appellation."
+            "Code OGR : <strong>", best_result$CodeAppellation,
+            "</strong> | Code ROME parent : <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/",
+            best_result$CodeRome,
+            "' target='_blank'><strong>", best_result$CodeRome, "</strong></a>",
+            " | Métier générique : <strong>", best_result$Intitule, "</strong>."
+          )
+        )
+      ),
+      p(
+        HTML(
+          paste0(
+            "Grand domaine : <strong>", ifelse(is.na(best_result$LibelleGrandDomaine), "Non renseigné", best_result$LibelleGrandDomaine),
+            "</strong> | Domaine professionnel : <strong>",
+            ifelse(is.na(best_result$LibelleDomaineProfessionnel), "Non renseigné", best_result$LibelleDomaineProfessionnel),
+            "</strong>."
+          )
+        )
+      ),
+      p(
+        HTML(
+          paste0(
+            "Ce résultat a un score de <strong>", round(best_result$Score * 100, 1),
+            "%</strong>."
           )
         )
       )
     )
   })
-  
   
   
   
