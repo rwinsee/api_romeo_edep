@@ -11,30 +11,33 @@ load_appellations_rome <- function(path = "data/unix_referentiel_appellation_v46
   )
   
   names(df) <- trimws(names(df))
-  names(df) <- tolower(names(df))
   
-  # Normalisation souple des noms de colonnes possibles
-  noms <- names(df)
-  
-  col_code_rome <- intersect(c("code_rome", "coderome"), noms)
-  col_libelle_rome <- intersect(c("libelle_rome", "libellerome"), noms)
-  col_code_ogr <- intersect(c("code_appellation", "code_ogr", "codeogr"), noms)
-  col_libelle_app <- intersect(c("libelle_appellation", "libelle_ogr", "libelleappellation"), noms)
-  
-  if (length(col_code_rome) == 0 || length(col_code_ogr) == 0) {
-    stop("Impossible d'identifier les colonnes CodeRome / CodeOGR dans le fichier des appellations.")
-  }
-  
-  out <- data.frame(
-    CodeRome = trimws(df[[col_code_rome[1]]]),
-    CodeOGR = trimws(df[[col_code_ogr[1]]]),
-    stringsAsFactors = FALSE
+  cols_attendues <- c(
+    "code_rome",
+    "code_ogr",
+    "libelle_appellation_long",
+    "libelle_appellation_court"
   )
   
-  if (length(col_libelle_app) > 0) {
-    out$LibelleAppellationRef <- df[[col_libelle_app[1]]]
+  manquantes <- setdiff(cols_attendues, names(df))
+  if (length(manquantes) > 0) {
+    stop(
+      "Colonnes manquantes dans le fichier des appellations : ",
+      paste(manquantes, collapse = ", ")
+    )
   }
   
-  out <- unique(out)
-  out
+  out <- df[, cols_attendues]
+  
+  names(out) <- c(
+    "CodeRome",
+    "CodeOGR",
+    "LibelleAppellationLong",
+    "LibelleAppellationCourt"
+  )
+  
+  out$CodeRome <- trimws(out$CodeRome)
+  out$CodeOGR <- trimws(as.character(out$CodeOGR))
+  
+  unique(out)
 }

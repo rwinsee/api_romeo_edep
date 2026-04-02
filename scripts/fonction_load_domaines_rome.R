@@ -15,9 +15,7 @@ load_domaines_rome <- function(path = "data/cr_gd_dp_v4_utf8.csv") {
   cols_attendues <- c(
     "code_rome",
     "libelle_rome",
-    "code_grand_domaine",
     "libelle_grand_domaine",
-    "code_domaine_professionel",
     "libelle_domaine_professionel"
   )
   
@@ -29,18 +27,16 @@ load_domaines_rome <- function(path = "data/cr_gd_dp_v4_utf8.csv") {
     )
   }
   
-  df <- df[, cols_attendues]
+  out <- df[, cols_attendues]
   
-  names(df) <- c(
+  names(out) <- c(
     "CodeRome",
-    "LibelleRomeRef",
-    "CodeGrandDomaine",
+    "LibelleRome",
     "LibelleGrandDomaine",
-    "CodeDomaineProfessionnel",
     "LibelleDomaineProfessionnel"
   )
   
-  df$CodeRome <- trimws(df$CodeRome)
+  out$CodeRome <- trimws(out$CodeRome)
   
-  df
+  unique(out)
 }
