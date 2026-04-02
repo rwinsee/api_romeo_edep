@@ -1,6 +1,6 @@
 source("scripts/fonction_packaging.R")
 
-date_deploiement <- "28-02-2025"
+date_deploiement <- "02-04-2026"
 
 readRenviron(".Renviron")
 Sys.getenv("FT_API_ENDPOINT")
@@ -12,48 +12,67 @@ source("scripts/fonction_getAccessToken.R")
 source("scripts/fetch_predictions_with_context_normalisationNAF.R")
 source("scripts/fonction_loadNAF_normalisee.R")
 source("scripts/fonction_getFichesMetier.R")
+source("scripts/fonction_load_domaines_rome.R")
+source("scripts/fonction_load_appellations_rome.R")
 
-# Fonction pour transformer les données retournées par fetch_appellations
-transform_appellations <- function(result) {
+domaines_rome <- load_domaines_rome("data/cr_gd_dp_v4_utf8.csv")
+appellations_rome <- load_appellations_rome("data/unix_referentiel_appellation_v460_utf8.csv")
+
+transform_appellations <- function(result, domaines_rome = NULL) {
   if (is.null(result) || length(result) == 0) {
     return(data.frame())
   }
   
-  # Extraire les données pertinentes
-  do.call(rbind, lapply(result[[1]]$metiersRome, function(x) {
+  df <- do.call(rbind, lapply(result[[1]]$metiersRome, function(x) {
     data.frame(
-      CodeRome = x$codeRome, # Code ROME de la fiche parente (3premiers digit domaine pro et les deux derniers fiches)  
-      Intitule = x$libelleRome, # Libellé de la fiche ROME parente
-      LibelleAppellation = x$libelleAppellation, # Libellé de l'appellation métier du ROME prédite
-      CodeAppellation = x$codeAppellation, # Code de l'appellation métier ROME prédite
-      Score = x$scorePrediction, # Score de confiance de l'IA suite à sa prédiction (plus on est proche de 1 plus l'IA est confiante)
+      CodeRome = trimws(x$codeRome),
+      Intitule = x$libelleRome,
+      LibelleAppellation = x$libelleAppellation,
+      CodeAppellation = x$codeAppellation,
+      Score = x$scorePrediction,
       stringsAsFactors = FALSE
     )
   }))
+  
+  if (!is.null(domaines_rome) && nrow(df) > 0) {
+    df <- dplyr::left_join(df, domaines_rome, by = "CodeRome")
+  }
+  
+  df
 }
 
-# Fonction pour transformer les données retournées par get_fiches_metier
-transform_fiches_metier <- function(fiches) {
-  # Vérifier si l'entrée 'fiches' est nulle ou vide
+transform_fiches_metier <- function(fiches, domaines_rome = NULL, appellations_rome = NULL) {
   if (is.null(fiches) || length(fiches) == 0) {
-    # Si aucune donnée n'est disponible, retourner un data.frame vide
     return(data.frame())
   }
   
-  # Parcourir chaque fiche pour extraire les informations pertinentes
-  # 'lapply' applique une fonction à chaque élément de la liste 'fiches'
-  do.call(rbind, lapply(fiches, function(x) {
-    # Créer un data.frame pour chaque fiche avec les colonnes suivantes :
+  df <- do.call(rbind, lapply(fiches, function(x) {
     data.frame(
-      Code = x$code,  # Code unique de la fiche métier
-      Libellé = x$metier$libelle,  # Libellé ou intitulé de la fiche métier
-      stringsAsFactors = FALSE  # Désactiver la conversion automatique des chaînes en facteurs
+      CodeRome = trimws(x$code),
+      MetierGenerique = x$metier$libelle,
+      stringsAsFactors = FALSE
     )
   }))
+  
+  if (!is.null(domaines_rome) && nrow(df) > 0) {
+    df <- dplyr::left_join(
+      df,
+      domaines_rome,
+      by = "CodeRome"
+    )
+  }
+  
+  if (!is.null(appellations_rome) && nrow(df) > 0) {
+    df <- dplyr::left_join(
+      df,
+      appellations_rome,
+      by = "CodeRome"
+    )
+  }
+  
+  df
 }
 
-
-# Interface utilisateur
 ui <- navbarPage(
   # Titre de l'application
   title = "Application Client ROMEO",
@@ -209,6 +228,7 @@ ui <- navbarPage(
       sidebarLayout(
         # Barre latérale pour les filtres et les champs de recherche
         sidebarPanel(
+          width = 3,
           # Titre de la section des filtres
           h4("Filtrer les métiers"),
           
@@ -224,11 +244,31 @@ ui <- navbarPage(
             inputId = "contexte_test", 
             label = "Entrez un contexte :", 
             placeholder = "Exemple : horticulture"
+          ),
+          selectInput(
+            inputId = "filtre_domaine_pro",
+            label = "Filtrer par domaine professionnel :",
+            choices = c("Tous" = ""),
+            selected = ""
+          ),
+          
+          selectInput(
+            inputId = "filtre_grand_domaine",
+            label = "Filtrer par grand domaine :",
+            choices = c("Tous" = ""),
+            selected = ""
+          ),
+          
+          actionButton(
+            inputId = "reset_filtres_rome",
+            label = "Réinitialiser les filtres",
+            icon = icon("eraser")
           )
         ),
         
         # Panneau principal pour afficher les résultats
         mainPanel(
+          width = 9,
           # Titre pour la liste des métiers
           h4("Liste des métiers"),
           
@@ -254,6 +294,7 @@ ui <- navbarPage(
       sidebarLayout(
         # Barre latérale pour les champs de recherche et les filtres
         sidebarPanel(
+          width = 3,
           # Titre de la section pour interroger l'API
           h4("Interroger l'API ROMEO"),
           
@@ -343,6 +384,7 @@ ui <- navbarPage(
         
         # Panneau principal pour afficher les résultats et les notes de lecture
         mainPanel(
+          width = 9,
           # Affichage conditionnel des résultats de la recherche
           uiOutput("search_results"),
           
@@ -382,7 +424,7 @@ ui <- navbarPage(
               a("Plateforme SSPCloud de l'INSEE ", href = "https://datalab.sspcloud.fr/", target = "_blank")
             ),
             tags$li(
-              HTML(paste0("Version actuelle : <strong>0.0.3</strong> (", date_deploiement, ")"))
+              HTML(paste0("Version actuelle : <strong>0.0.4</strong> (", date_deploiement, ")"))
             ),
             tags$li(
               HTML("Historique des versions : "),
@@ -443,42 +485,88 @@ server <- function(input, output, session) {
   
   # Récupération et transformation des données des métiers ROME
   rome_data <- reactive({
-    # Étape 1 : Récupérer les fiches métiers
-    # La fonction `get_fiches_metier()` interroge l'API ou une autre source pour obtenir les fiches métiers brutes.
     fiches <- get_fiches_metier()
     
-    # Étape 2 : Transformer les données récupérées
-    # La fonction `transform_fiches_metier()` reformate les fiches pour qu'elles soient exploitables dans l'application.
-    transform_fiches_metier(fiches)
+    transform_fiches_metier(
+      fiches,
+      domaines_rome = domaines_rome,
+      appellations_rome = appellations_rome
+    )
   })
   
   # Filtrer les métiers en fonction de la recherche
   filtered_data <- reactive({
-    # Étape 1 : Vérifier que les données des métiers ROME sont disponibles
-    req(rome_data())  # Si `rome_data()` est NULL ou invalide, l'exécution s'arrête ici.
+    req(rome_data())
     
-    # Étape 2 : Si aucun mot-clé n'est saisi, retourner toutes les données
-    if (input$search_rome == "" || is.null(input$search_rome)) {
-      return(rome_data())  # Aucun filtre n'est appliqué
-    } else {
-      # Étape 3 : Appliquer un filtre sur les données disponibles
-      # On recherche le mot-clé saisi dans deux colonnes : "Libellé" (nom des métiers) et "Code" (codes ROME).
-      rome_data() %>%
+    df <- rome_data()
+    
+    if (!is.null(input$search_rome) && input$search_rome != "") {
+      df <- df %>%
         dplyr::filter(
-          grepl(input$search_rome, Libellé, ignore.case = TRUE) |  # Recherche insensible à la casse dans les libellés
-            grepl(input$search_rome, Code, ignore.case = TRUE)    # Recherche insensible à la casse dans les codes
+          grepl(input$search_rome, MetierGenerique, ignore.case = TRUE) |
+            grepl(input$search_rome, LibelleAppellationLong, ignore.case = TRUE) |
+            grepl(input$search_rome, CodeRome, ignore.case = TRUE) |
+            grepl(input$search_rome, CodeOGR, ignore.case = TRUE) |
+            grepl(input$search_rome, LibelleDomaineProfessionnel, ignore.case = TRUE) |
+            grepl(input$search_rome, LibelleGrandDomaine, ignore.case = TRUE)
         )
     }
+    
+    if (!is.null(input$filtre_domaine_pro) && input$filtre_domaine_pro != "") {
+      df <- df %>%
+        dplyr::filter(LibelleDomaineProfessionnel == input$filtre_domaine_pro)
+    }
+    
+    if (!is.null(input$filtre_grand_domaine) && input$filtre_grand_domaine != "") {
+      df <- df %>%
+        dplyr::filter(LibelleGrandDomaine == input$filtre_grand_domaine)
+    }
+    
+    df
   })
   
-  
-  # Afficher le tableau des métiers
   output$table_rome <- renderDT({
+    df <- filtered_data()
+    
+    if (is.null(df) || nrow(df) == 0) {
+      return(NULL)
+    }
+    
+    df$AppellationLien <- paste0(
+      df$LibelleAppellationLong,
+      " <br><a href='https://candidat.francetravail.fr/metierscope/fiche-metier/",
+      df$CodeRome,
+      "' target='_blank' style='font-size: 0.8em;'>Voir la fiche métier</a>"
+    )
+    
+    colonnes <- c(
+      "CodeOGR",
+      "AppellationLien",
+      "MetierGenerique",
+      "LibelleDomaineProfessionnel",
+      "LibelleGrandDomaine"
+    )
+    
+    labels <- c(
+      CodeOGR = "Code OGR",
+      AppellationLien = "Appellation",
+      MetierGenerique = "Métier générique",
+      LibelleDomaineProfessionnel = "Domaine professionnel",
+      LibelleGrandDomaine = "Grand domaine"
+    )
+    
+    colonnes <- intersect(colonnes, names(df))
+    
     datatable(
-      filtered_data(),
+      df[, colonnes, drop = FALSE],
       rownames = FALSE,
-      options = list(pageLength = 10),  # Options pour la pagination
-      colnames = c("Code", "Libellé")
+      escape = FALSE,
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE,
+        search = list(search = "")
+      ),
+      colnames = unname(labels[colonnes])
     )
   })
   
@@ -522,8 +610,81 @@ server <- function(input, output, session) {
     }
   })
   
+  observe({
+    req(rome_data())
+    
+    df_ref <- rome_data()
+    
+    if (!is.null(input$filtre_grand_domaine) && input$filtre_grand_domaine != "") {
+      df_dp <- df_ref %>%
+        dplyr::filter(LibelleGrandDomaine == input$filtre_grand_domaine)
+    } else {
+      df_dp <- df_ref
+    }
+    
+    if (!is.null(input$filtre_domaine_pro) && input$filtre_domaine_pro != "") {
+      df_gd <- df_ref %>%
+        dplyr::filter(LibelleDomaineProfessionnel == input$filtre_domaine_pro)
+    } else {
+      df_gd <- df_ref
+    }
+    
+    choix_dp <- c(
+      "Tous" = "",
+      sort(unique(na.omit(df_dp$LibelleDomaineProfessionnel)))
+    )
+    
+    choix_gd <- c(
+      "Tous" = "",
+      sort(unique(na.omit(df_gd$LibelleGrandDomaine)))
+    )
+    
+    selected_dp <- if (is.null(input$filtre_domaine_pro)) "" else input$filtre_domaine_pro
+    selected_gd <- if (is.null(input$filtre_grand_domaine)) "" else input$filtre_grand_domaine
+    
+    if (!(selected_dp %in% unname(choix_dp))) {
+      selected_dp <- ""
+    }
+    
+    if (!(selected_gd %in% unname(choix_gd))) {
+      selected_gd <- ""
+    }
+    
+    updateSelectInput(
+      session,
+      "filtre_domaine_pro",
+      choices = choix_dp,
+      selected = selected_dp
+    )
+    
+    updateSelectInput(
+      session,
+      "filtre_grand_domaine",
+      choices = choix_gd,
+      selected = selected_gd
+    )
+  })
   
   
+  observeEvent(input$reset_filtres_rome, {
+    updateTextInput(session, "search_rome", value = "")
+    updateTextInput(session, "contexte_test", value = "")
+    updateSelectInput(session, "filtre_domaine_pro", selected = "")
+    updateSelectInput(session, "filtre_grand_domaine", selected = "")
+    
+    df_reset <- rome_data()
+    
+    colonnes <- c(
+      "Code",
+      "CodeOGR",
+      "Libellé",
+      "LibelleDomaineProfessionnel",
+      "LibelleGrandDomaine"
+    )
+    
+    colonnes <- intersect(colonnes, names(df_reset))
+    
+  })
   
   # Gérer la réinitialisation via la croix
   observe({
@@ -578,8 +739,7 @@ server <- function(input, output, session) {
       message("Aucun contexte APET valide, contexte réinitialisé.")
     }
   })
-  
-  
+
   # Observer pour capturer les modifications manuelles du champ texte
   observeEvent(input$contexte_test, {
     contexte_reactif(input$contexte_test)  # Mettre à jour la valeur réactive avec la saisie manuelle
@@ -610,11 +770,10 @@ server <- function(input, output, session) {
       contexte = contexte_final,
       naf_data = naf_data
     )
-    transform_appellations(result)
+    # transform_appellations(result)
+    transform_appellations(result, domaines_rome = domaines_rome)
   })
-  
-  
-  
+
   # Affichage conditionnel
   output$search_results <- renderUI({
     if (is.null(predictions())) {
@@ -658,37 +817,58 @@ server <- function(input, output, session) {
       )
     }
   })
-  
-  
-  
+
   # Affichage des prédictions dans le tableau
   output$table_predictions <- renderDT({
     pred_data <- predictions()
-    if (is.null(pred_data)) {
-      return(NULL)  # Retourne rien si aucune donnée n'est trouvée
+    
+    if (is.null(pred_data) || nrow(pred_data) == 0) {
+      return(NULL)
     }
     
-    # Convertir le score en pourcentage
-    pred_data$Score <- round(pred_data$Score * 100, 1)
-    pred_data$Score <- paste0(pred_data$Score, "%")
+    pred_data$ScoreNum <- pred_data$Score
+    pred_data$Score <- paste0(round(pred_data$Score * 100, 1), "%")
     
-    # Ajouter un lien sous l'Appellation avec un style pour réduire la taille de la police
     pred_data$LibelleAppellation <- paste0(
-      pred_data$LibelleAppellation, 
-      "     <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
-      pred_data$CodeRome, 
-      "' target='_blank' style='font-size: 0.7em; '>Voir la fiche métier</a>"
+      pred_data$LibelleAppellation,
+      " <br><a href='https://candidat.francetravail.fr/metierscope/fiche-metier/",
+      pred_data$CodeRome,
+      "' target='_blank' style='font-size: 0.8em;'>Voir la fiche métier</a>"
     )
     
-    # Sélectionner uniquement les colonnes nécessaires
-    pred_data <- pred_data[, c("CodeAppellation", "LibelleAppellation", "Score")]
+    # Colonnes à afficher
+    colonnes_affichees <- c(
+      "CodeAppellation",
+      "LibelleAppellation",
+      "CodeRome",
+      "Intitule",
+      "LibelleDomaineProfessionnel",
+      "LibelleGrandDomaine",
+      "Score"
+    )
+    
+    # Sécuriser si certaines colonnes sont absentes
+    colonnes_affichees <- intersect(colonnes_affichees, names(pred_data))
+    pred_data <- pred_data[, colonnes_affichees, drop = FALSE]
     
     datatable(
       pred_data,
       rownames = FALSE,
-      options = list(pageLength = 10),
-      escape = FALSE,  # Permet d'afficher les liens HTML
-      colnames = c("Code OGR", "Appellation", "Score")
+      escape = FALSE,
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE,
+        search = list(search = "")
+      ),
+      colnames = c(
+        "Code OGR",
+        "Appellation",
+        "Code ROME",
+        "Métier générique",
+        "Domaine professionnel",
+        "Grand domaine",
+        "Score"
+      )[seq_along(colonnes_affichees)]
     )
   })
   
@@ -696,54 +876,56 @@ server <- function(input, output, session) {
   output$note_lecture <- renderUI({
     pred_data <- predictions()
     
-    # Debug: inspecter les données de pred_data
-    if (!is.null(pred_data)) {
-      message("Structure de pred_data :")
-      print(str(pred_data))
-    }
-    
     if (is.null(pred_data) || nrow(pred_data) == 0) {
-      return(NULL)  # Pas de note si aucun résultat
+      return(NULL)
     }
     
-    # Obtenez le résultat avec le score le plus élevé
-    best_result <- pred_data[which.max(as.numeric(pred_data$Score)), ]
+    best_result <- pred_data[which.max(pred_data$Score), ]
     
-    # Debug: inspecter les données de best_result
-    message("Structure de best_result :")
-    print(str(best_result))
-    
-    # Texte explicatif
     div(
       style = "margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;",
       h4("Note de lecture"),
       p(
         HTML(
           paste0(
-            "La meilleure correspondance pour votre recherche <strong>'", input$libelle, 
-            "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation, 
-            "</strong> avec l'intitulé : <strong>", best_result$Intitule,
-            "</strong> (Code ROME : <strong>", best_result$CodeAppellation, 
-            "</strong>, code fiche métier ROME : <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/", 
-            best_result$CodeRome, 
-            "' target='_blank'><strong>", best_result$CodeRome, "</strong></a>)."
+            "La meilleure correspondance pour votre recherche <strong>'", input$libelle,
+            "'</strong> est l'appellation : <strong>", best_result$LibelleAppellation,
+            "</strong>."
           )
         )
       ),
       p(
         HTML(
           paste0(
-            "Ce résultat a un score de <strong>", round(as.numeric(best_result$Score) * 100, 1), 
-            "%</strong>, ce qui indique un haut degré de correspondance entre votre saisie et cette appellation."
+            "Code OGR : <strong>", best_result$CodeAppellation,
+            "</strong> | Code ROME parent : <a href='https://candidat.francetravail.fr/metierscope/fiche-metier/",
+            best_result$CodeRome,
+            "' target='_blank'><strong>", best_result$CodeRome, "</strong></a>",
+            " | Métier générique : <strong>", best_result$Intitule, "</strong>."
+          )
+        )
+      ),
+      p(
+        HTML(
+          paste0(
+            "Grand domaine : <strong>", ifelse(is.na(best_result$LibelleGrandDomaine), "Non renseigné", best_result$LibelleGrandDomaine),
+            "</strong> | Domaine professionnel : <strong>",
+            ifelse(is.na(best_result$LibelleDomaineProfessionnel), "Non renseigné", best_result$LibelleDomaineProfessionnel),
+            "</strong>."
+          )
+        )
+      ),
+      p(
+        HTML(
+          paste0(
+            "Ce résultat a un score de <strong>", round(best_result$Score * 100, 1),
+            "%</strong>."
           )
         )
       )
     )
   })
-  
-  
-  
-  
+
   
 }
 
