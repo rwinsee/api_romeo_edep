@@ -20,6 +20,8 @@ COPY scripts/fonction_getFichesMetier.R /srv/shiny-server/scripts/
 COPY scripts/fonction_fetchAppelations.R /srv/shiny-server/scripts/
 COPY scripts/fonction_fetchAppelationsContexte.R /srv/shiny-server/scripts/
 COPY scripts/fonction_loadNAF.R /srv/shiny-server/scripts/
+COPY scripts/fonction_load_domaines_rome.R /srv/shiny-server/scripts/
+COPY scripts/fonction_load_appellations_rome.R /srv/shiny-server/scripts/
 
 # Étape 4 : Installer les packages R nécessaires
 RUN R -e "install.packages(c('shiny', 'DT', 'httr', 'jsonlite', 'shinyjs', 'dplyr'), repos='http://cran.rstudio.com/')"
