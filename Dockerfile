@@ -23,6 +23,10 @@ COPY scripts/fonction_loadNAF.R /srv/shiny-server/scripts/
 COPY scripts/fonction_load_domaines_rome.R /srv/shiny-server/scripts/
 COPY scripts/fonction_load_appellations_rome.R /srv/shiny-server/scripts/
 
+RUN mkdir -p /srv/shiny-server/data
+COPY data/cr_gd_dp_v4_utf8.csv /srv/shiny-server/data/
+COPY data/unix_referentiel_appellation_v460_utf8.csv /srv/shiny-server/data/
+
 # Étape 4 : Installer les packages R nécessaires
 RUN R -e "install.packages(c('shiny', 'DT', 'httr', 'jsonlite', 'shinyjs', 'dplyr'), repos='http://cran.rstudio.com/')"
 
